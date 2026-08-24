@@ -1,0 +1,15 @@
+{
+  "name": "サッシ呼称チェッカー",
+  "short_name": "サッシ呼称",
+  "description": "YKK AP APW430/APW330とLIXIL TWのサッシ呼称から、実寸・窓種・カタログ頁を確認できるツール",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#faf9f6",
+  "theme_color": "#1c1c1a",
+  "lang": "ja",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
