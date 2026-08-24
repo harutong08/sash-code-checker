@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>サッシ呼称チェッカー | APW 430</title>
+<style>
+:root{
+  --bg:#faf9f6;
+  --surface:#ffffff;
+  --line:#e6e3da;
+  --ink:#1c1c1a;
+  --ink-soft:#7a756b;
+  --ink-faint:#a8a296;
+  --normal:#2f6b4f;
+  --normal-bg:#eaf3ee;
+  --bouka:#b23b22;
+  --bouka-bg:#fbeee7;
+  --warn:#8a6d1d;
+  --warn-bg:#f5edd8;
+  --radius:10px;
+  --sans:"Hiragino Sans","Yu Gothic","Noto Sans JP",sans-serif;
+  --mono:ui-monospace,"SF Mono","Roboto Mono","Courier New",monospace;
+  font-size:16px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--sans);
+  min-height:100vh;
+  padding:32px 16px 64px;
+  line-height:1.6;
+}
+.wrap{max-width:720px;margin:0 auto;}
+
+header.top{margin-bottom:24px;}
+h1{
+  font-size:22px;
+  margin:0 0 6px;
+  font-weight:700;
+  letter-spacing:.01em;
+}
+p.lead{
+  font-size:14px;
+  color:var(--ink-soft);
+  line-height:1.7;
+  margin:0;
+  max-width:56ch;
+}
+
+/* --- 区分・モード切替：共通の軽いセグメント -------------------- */
+.tabs{
+  display:flex;
+  gap:8px;
+  margin:22px 0 12px;
+}
+.tab{
+  flex:1;
+  appearance:none;
+  border:1px solid var(--line);
+  background:var(--surface);
+  font-family:var(--sans);
+  font-size:13.5px;
+  font-weight:600;
+  padding:10px 10px;
+  border-radius:8px;
+  cursor:pointer;
+  color:var(--ink-soft);
+  transition:background .12s ease, color .12s ease, border-color .12s ease;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+}
+.tab .dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.35;}
+.tab[data-role="normal"].active{background:var(--normal-bg);color:var(--normal);border-color:var(--normal-bg);}
+.tab[data-role="normal"].active .dot{opacity:1;}
+.tab[data-role="bouka"].active{background:var(--bouka-bg);color:var(--bouka);border-color:var(--bouka-bg);}
+.tab[data-role="bouka"].active .dot{opacity:1;}
+.tab:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
+
+.brand-row{margin-bottom:14px;}
+.brand-row label.small{
+  display:block;font-size:11px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;
+}
+.brand-row select{
+  width:100%;font-family:var(--sans);font-size:16px;font-weight:700;padding:11px 32px 11px 12px;
+  border:1.5px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);
+  appearance:none;
+  background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>');
+  background-repeat:no-repeat;background-position:right 10px center;cursor:pointer;
+}
+.brand-row select:focus-visible{outline:2px solid var(--ink);outline-offset:1px;border-color:var(--ink);}
+
+.mode-tabs{display:flex;gap:18px;margin:4px 0 18px;border-bottom:1px solid var(--line);}
+.mode-tab{
+  appearance:none;border:none;background:none;color:var(--ink-soft);
+  font-family:var(--sans);font-size:13.5px;font-weight:600;
+  padding:0 0 10px;cursor:pointer;
+  border-bottom:2px solid transparent;
+  margin-bottom:-1px;
+}
+.mode-tab.active{color:var(--ink);border-bottom-color:var(--ink);}
+.mode-tab:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
+
+.type-filter-row{margin-bottom:18px;}
+.type-filter-label{
+  font-size:11.5px;font-weight:600;color:var(--ink-soft);
+  display:block;margin-bottom:8px;
+}
+.filter-select{
+  width:100%;font-family:var(--sans);font-size:16px;font-weight:600;
+  padding:10px 32px 10px 12px;
+  border:1.5px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);
+  appearance:none;
+  background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%237a756b" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>');
+  background-repeat:no-repeat;
+  background-position:right 10px center;
+  cursor:pointer;
+}
+.filter-select:focus-visible{outline:2px solid var(--ink);outline-offset:1px;border-color:var(--ink);}
+
+.panel{display:none;}
+.panel.active{display:block;}
+
+/* --- 入力エリア --------------------------------------------- */
+.searchcard{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:20px;
+}
+.searchcard label{
+  font-family:var(--sans);
+  font-size:12px;
+  font-weight:600;
+  color:var(--ink-soft);
+  display:block;
+  margin-bottom:8px;
+}
+.inputrow{display:flex;gap:10px;}
+input#codeInput{
+  flex:1;
+  font-family:var(--mono);
+  font-size:20px;
+  padding:11px 13px;
+  border:1.5px solid var(--line);
+  border-radius:8px;
+  background:var(--surface);
+  color:var(--ink);
+  min-width:0;
+}
+input#codeInput:focus-visible{outline:2px solid var(--ink);outline-offset:1px;border-color:var(--ink);}
+input#codeInput::placeholder{color:var(--ink-faint);}
+.hint{
+  font-size:12.5px;
+  color:var(--ink-soft);
+  margin:10px 2px 0;
+  line-height:1.7;
+}
+.hint code{
+  font-family:var(--mono);
+  background:var(--bg);
+  padding:1px 5px;
+  border-radius:4px;
+  border:1px solid var(--line);
+}
+
+.or-divider{
+  display:flex;align-items:center;gap:10px;
+  margin:20px 0 14px;
+  font-size:12px;color:var(--ink-soft);font-weight:600;
+}
+.or-divider::before,.or-divider::after{content:"";flex:1;height:1px;background:var(--line);}
+
+.unit-toggle{display:flex;gap:6px;margin:10px 0 14px;}
+.unit-tab{
+  appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);
+  font-family:var(--sans);font-size:12.5px;font-weight:600;
+  padding:6px 12px;border-radius:20px;cursor:pointer;transition:background .12s ease,color .12s ease;
+}
+.unit-tab.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+.unit-tab:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
+
+.reverse-row{display:flex;gap:10px;align-items:flex-end;}
+.reverse-row .dim-field{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0;}
+.reverse-row label.small{font-family:var(--sans);font-size:11.5px;font-weight:600;color:var(--ink-soft);}
+.reverse-row select{
+  font-family:var(--mono);font-size:16px;padding:10px 12px;
+  border:1.5px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);width:100%;min-width:0;
+  appearance:none;
+  background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%237a756b" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>');
+  background-repeat:no-repeat;
+  background-position:right 10px center;
+  padding-right:32px;
+}
+.reverse-row select:disabled{color:var(--ink-faint);background-color:var(--bg);cursor:not-allowed;}
+.reverse-row select:focus-visible{outline:2px solid var(--ink);outline-offset:1px;border-color:var(--ink);}
+.reverse-row .times{font-size:16px;color:var(--ink-soft);padding-bottom:11px;}
+
+textarea#batchInput{
+  width:100%;min-height:110px;font-family:var(--mono);font-size:16px;
+  padding:12px 14px;border:1.5px solid var(--line);border-radius:8px;
+  background:var(--surface);color:var(--ink);resize:vertical;line-height:1.7;
+}
+textarea#batchInput:focus-visible{outline:2px solid var(--ink);outline-offset:1px;border-color:var(--ink);}
+.batch-actions{display:flex;justify-content:flex-end;margin-top:10px;}
+.batch-actions button{
+  appearance:none;border:none;background:var(--ink);color:#fff;
+  font-family:var(--sans);font-size:13px;font-weight:700;
+  padding:9px 18px;border-radius:8px;cursor:pointer;
+}
+.batch-actions button:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
+
+.batch-add-row{margin-bottom:14px;}
+.small-label{
+  display:block;font-family:var(--sans);font-size:11.5px;font-weight:600;
+  color:var(--ink-soft);margin-bottom:6px;
+}
+.list-label{margin-top:16px;}
+.batch-add-row .inputrow{display:flex;gap:8px;}
+.batch-add-row input[type="text"]{
+  flex:1;font-family:var(--mono);font-size:16px;padding:9px 12px;
+  border:1.5px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);min-width:0;
+}
+.batch-add-row input[type="text"]:focus-visible{outline:2px solid var(--ink);outline-offset:1px;border-color:var(--ink);}
+.batch-add-row .reverse-row{margin-bottom:0;}
+.add-btn{
+  appearance:none;border:none;background:var(--ink);color:#fff;
+  font-family:var(--sans);font-size:13px;font-weight:700;
+  padding:0 16px;border-radius:8px;cursor:pointer;flex:0 0 auto;
+  height:41px;
+}
+.add-btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
+.add-btn:disabled{background:var(--ink-faint);cursor:not-allowed;}
+
+/* --- 履歴チップ ----------------------------------------------- */
+.history-box{display:none;margin:14px 2px 0;flex-wrap:wrap;gap:6px;align-items:center;}
+.history-box .label{
+  font-size:11.5px;font-weight:600;
+  color:var(--ink-soft);margin-right:2px;
+}
+.history-chip{
+  appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);
+  font-family:var(--mono);font-size:12.5px;padding:4px 11px;border-radius:14px;cursor:pointer;
+}
+.history-chip:hover{border-color:var(--ink);}
+
+/* --- 結果まわり：共通ノーティス ------------------------------ */
+#resultArea{margin-top:20px;}
+.status-line{
+  font-size:13px;
+  color:var(--ink-soft);
+  margin:0 0 12px 2px;
+}
+.status-line b{color:var(--ink);font-weight:700;}
+.status-line button.clear-prefix{
+  appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);
+  font-family:var(--sans);font-size:11.5px;font-weight:600;
+  padding:2px 8px;border-radius:6px;cursor:pointer;margin-left:4px;
+}
+
+.empty-state{
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:26px 20px;
+  text-align:center;
+  color:var(--ink-soft);
+  font-size:13.5px;
+  line-height:1.8;
+  background:var(--surface);
+}
+.empty-state .big{
+  font-size:22px;
+  display:block;
+  margin-bottom:6px;
+  color:var(--ink-faint);
+}
+
+.cross-hint{
+  margin-top:10px;
+  font-size:13px;
+  padding:12px 14px;
+  border-radius:var(--radius);
+  background:var(--bg);
+  border:1px solid var(--line);
+  color:var(--ink-soft);
+  line-height:1.6;
+}
+.cross-hint button{
+  appearance:none;border:1px solid var(--ink);background:var(--surface);color:var(--ink);
+  font-family:var(--sans);font-size:12.5px;font-weight:600;
+  padding:4px 10px;border-radius:6px;cursor:pointer;margin-left:6px;
+}
+
+.similar-box{
+  margin-top:10px;font-size:13px;color:var(--ink-soft);
+}
+.similar-box .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+.similar-chip{
+  appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);
+  font-family:var(--mono);font-size:13px;font-weight:700;
+  padding:6px 12px;border-radius:8px;cursor:pointer;text-align:left;line-height:1.5;
+}
+.similar-chip:hover{border-color:var(--ink);}
+.similar-chip small{display:block;font-family:var(--sans);font-size:10.5px;font-weight:400;color:var(--ink-soft);margin-top:2px;}
+
+/* --- 結果カード：色は区分の左ボーダーだけ ---------------------- */
+.result-grid{display:flex;flex-direction:column;gap:10px;}
+.card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-left:3px solid var(--line);
+  border-radius:var(--radius);
+  padding:16px 18px;
+  display:flex;
+  gap:16px;
+  align-items:center;
+}
+.card.cat-normal{border-left-color:var(--normal);}
+.card.cat-bouka{border-left-color:var(--bouka);}
+.card .diagram{flex:0 0 auto;width:52px;display:flex;align-items:center;justify-content:center;}
+.card .info{flex:1;min-width:0;}
+.card .meta{
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--ink-soft);
+  margin:0 0 3px;
+}
+.card h3{
+  margin:0 0 2px;
+  font-size:15.5px;
+  font-weight:700;
+  font-family:var(--sans);
+}
+.card .variant{
+  font-size:12.5px;
+  color:var(--ink-soft);
+  margin:0 0 6px;
+}
+.card .dims{
+  font-family:var(--mono);
+  font-size:18px;
+  font-weight:700;
+  color:var(--ink);
+}
+.card .dims span.unit{font-size:11.5px;font-weight:400;color:var(--ink-soft);margin-left:1px;}
+.card .page-ref{
+  margin-top:4px;
+  font-size:11.5px;
+  color:var(--ink-soft);
+}
+.card .page-ref b{color:var(--ink);font-family:var(--mono);}
+
+/* --- 一括チェック表 -------------------------------------------- */
+.batch-table{width:100%;border-collapse:collapse;margin-top:2px;}
+.batch-table th{
+  text-align:left;font-size:11px;font-weight:600;
+  color:var(--ink-soft);padding:6px 8px;border-bottom:1px solid var(--line);
+}
+.batch-table td{
+  font-size:13px;
+  padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top;
+}
+.batch-table tr:last-child td{border-bottom:none;}
+.batch-table .code-cell{font-family:var(--mono);font-weight:700;white-space:nowrap;}
+.batch-table .detail small{display:block;color:var(--ink-soft);font-size:11.5px;margin-top:2px;}
+.status-flag{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;white-space:nowrap;}
+.status-flag::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;}
+.status-flag.s-ok{color:var(--normal);}
+.status-flag.s-warn{color:var(--warn);}
+.status-flag.s-miss{color:var(--bouka);}
+
+footer.legend{
+  margin-top:32px;
+  padding-top:16px;
+  border-top:1px solid var(--line);
+  font-size:12px;
+  color:var(--ink-soft);
+  line-height:1.8;
+}
+footer.legend b{color:var(--ink);}
+
+@media (max-width:480px){
+  .card{flex-direction:column;align-items:flex-start;}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none !important;}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1>サッシ呼称チェッカー</h1>
+    <p class="lead">メーカーを選び、呼称（例：16520）を入力すると、通常・防火それぞれの規格に存在するかどうかと、対応する窓種・実寸・掲載頁を表示します。</p>
+  </header>
+
+  <div class="brand-row">
+    <label class="small" for="brandSelect">メーカー</label>
+    <select id="brandSelect">
+      <option value="apw">YKK AP APW430 / APW330</option>
+      <option value="tw">LIXIL TW</option>
+    </select>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="サッシ区分">
+    <button class="tab" data-role="normal" data-cat="一般" role="tab" aria-selected="true">
+      <span class="dot"></span><span class="tab-label">通常サッシ</span>
+    </button>
+    <button class="tab" data-role="bouka" data-cat="防火" role="tab" aria-selected="false">
+      <span class="dot"></span><span class="tab-label">防火サッシ</span>
+    </button>
+  </div>
+
+  <div class="mode-tabs" role="tablist" aria-label="検索モード">
+    <button class="mode-tab active" data-mode="single" role="tab" aria-selected="true">呼称で検索</button>
+    <button class="mode-tab" data-mode="batch" role="tab" aria-selected="false">まとめてチェック</button>
+  </div>
+
+  <div class="searchcard">
+    <div class="type-filter-row" id="seriesFilterRow" style="display:none;">
+      <label class="type-filter-label" for="seriesFilterSelect">シリーズで絞り込む</label>
+      <select class="filter-select" id="seriesFilterSelect"></select>
+    </div>
+
+    <div class="type-filter-row">
+      <label class="type-filter-label" for="typeFilterSelect">窓種で絞り込む</label>
+      <select class="filter-select" id="typeFilterSelect"></select>
+    </div>
+
+    <div class="panel active" id="panel-single">
+      <label for="codeInput">サッシ呼称</label>
+      <div class="inputrow">
+        <input id="codeInput" type="text" inputmode="text" autocomplete="off"
+               placeholder="例：F16520 / 16520" autofocus>
+      </div>
+      <p class="hint" id="prefixHint">対応済みの接頭辞：<code>F</code>＝FIX窓／<code>S</code>＝すべり出し窓／<code>T</code>＝たてすべり出し窓／<code>TF</code>＝たてすべり出し窓＋FIX段窓／<code>TR</code>＝たてすべり出し窓＋連窓／<code>SF</code>＝すべり出し窓＋FIX段窓／<code>SR</code>＝すべり出し窓＋連窓／<code>AW</code>＝引違い窓（該当窓種のみに絞り込みます）。未対応の接頭辞は無視され、数字部分のみで全窓種を横断検索します。呼称は <code>幅呼称＋高さ呼称</code>（例：165 + 20）で構成されます。</p>
+
+      <div class="or-divider"><span>または、サイズから選ぶ</span></div>
+
+      <div class="unit-toggle" role="tablist" aria-label="サイズの単位">
+        <button type="button" class="unit-tab" data-unit="mm" role="tab" aria-selected="false">実寸(mm)で選ぶ</button>
+        <button type="button" class="unit-tab active" data-unit="call" role="tab" aria-selected="true">呼称で選ぶ</button>
+      </div>
+      <div class="reverse-row">
+        <div class="dim-field">
+          <label class="small" id="revWLabel" for="revW">幅呼称</label>
+          <select id="revW"><option value="">選択してください</option></select>
+        </div>
+        <div class="times">×</div>
+        <div class="dim-field">
+          <label class="small" id="revHLabel" for="revH">高さ呼称</label>
+          <select id="revH" disabled><option value="">先に幅を選択</option></select>
+        </div>
+      </div>
+      <p class="hint" id="reverseHint">カタログの幅呼称・高さ呼称（例：165／20）から選びます。組み合わせは常に実在するものだけです。</p>
+    </div>
+
+    <div class="panel" id="panel-batch">
+      <label for="batchInput">複数呼称をまとめてチェック</label>
+
+      <div class="batch-add-row">
+        <label class="small-label">呼称を入力して追加</label>
+        <div class="inputrow">
+          <input id="batchCodeInput" type="text" inputmode="text" autocomplete="off" placeholder="例：F16520 / 16520">
+          <button type="button" id="batchAddCode" class="add-btn">追加</button>
+        </div>
+      </div>
+
+      <div class="batch-add-row">
+        <label class="small-label">サイズ呼称から選んで追加</label>
+        <div class="reverse-row">
+          <div class="dim-field">
+            <label class="small" for="batchRevW">幅呼称</label>
+            <select id="batchRevW"><option value="">選択してください</option></select>
+          </div>
+          <div class="times">×</div>
+          <div class="dim-field">
+            <label class="small" for="batchRevH">高さ呼称</label>
+            <select id="batchRevH" disabled><option value="">先に幅を選択</option></select>
+          </div>
+          <button type="button" id="batchAddSize" class="add-btn">追加</button>
+        </div>
+      </div>
+
+      <label for="batchInput" class="small-label list-label">チェックする呼称一覧</label>
+      <textarea id="batchInput" placeholder="1行に1つずつ呼称を入力（例）&#10;F16520&#10;S06005&#10;AW16015"></textarea>
+      <div class="batch-actions"><button id="batchRun" type="button">まとめて判定</button></div>
+      <p class="hint">図面の窓一覧などをそのまま貼り付けてOKです。各行の英字接頭辞・余分な記号は自動で無視されます。</p>
+    </div>
+  </div>
+
+  <div id="historyBox" class="history-box"><span class="label">最近チェックした呼称</span></div>
+
+  <div id="resultArea"></div>
+
+  <footer class="legend">
+    <b>結果カードの図について：</b> 枠内の斜め線・区切り線は開閉方式の目安です（斜め線＝ヒンジで開くタイプ、太線側がヒンジ位置／中央の縦線＋矢印＝左右にスライド／横線のみ＝上下2枚に分割／上段斜め線・下段無地＝FIXとの組み合わせ／丸印と弧＝ドアの取っ手と開く向き）。実際の意匠・勝手（左右）とは異なる場合があります。<br>
+    <b>呼称の読み方：</b> <span id="footerNote">例）16520 → 幅呼称165（サッシW実寸 1,690mm）＋高さ呼称20（サッシH実寸 約2,030〜2,070mm、窓種により異なる）。ガラス欄「◎」は標準設定、「〇」「▽」「△」「●」「▲」はカタログ内の特記（重量障子・非常用進入口対応など）を伴う設定です。</span><br>
+      <span id="footerSource">出典：YKK AP「APW 430」「APW 330」商品カタログ／「APW 430・330 防火窓」商品カタログ（掲載頁は各カタログ内表記）。</span>
+  </footer>
+
+</div>
+<script>
+const DATA_APW = {"types":[{"cat":"防火","series":"APW 330 防火窓","type":"FIX窓","variant":"窓タイプ","note":null,"page":82},{"cat":"防火","series":"APW 330 防火窓","type":"FIX窓 スリムフレーム","variant":"窓タイプ","note":null,"page":84},{"cat":"防火","series":"APW 330 防火窓","type":"すべり出し窓（グレモンハンドル仕様）","variant":null,"note":null,"page":66},{"cat":"防火","series":"APW 330 防火窓","type":"たてすべり出し窓（グレモンハンドル仕様）","variant":null,"note":null,"page":58},{"cat":"防火","series":"APW 330 防火窓","type":"たてすべり出し窓（オペレーターハンドル仕様）","variant":null,"note":null,"page":62},{"cat":"防火","series":"APW 430 防火窓","type":"FIX窓","variant":"窓タイプ","note":null,"page":46},{"cat":"防火","series":"APW 330 防火窓","type":"片上げ下げ窓","variant":null,"note":null,"page":54},{"cat":"一般","series":"APW 430","type":"FIX窓","variant":"窓タイプ","note":null,"page":70},{"cat":"防火","series":"APW 330 防火窓","type":"すべり出し窓（オペレーターハンドル仕様）","variant":null,"note":null,"page":70},{"cat":"防火","series":"APW 330 防火窓","type":"高所用すべり出し窓","variant":null,"note":null,"page":74},{"cat":"一般","series":"APW 430","type":"すべり出し窓（グレモンハンドル仕様）","variant":null,"note":null,"page":54},{"cat":"一般","series":"APW 430","type":"すべり出し窓（オペレーターハンドル仕様）","variant":null,"note":null,"page":58},{"cat":"一般","series":"APW 430","type":"高所用すべり出し窓","variant":null,"note":null,"page":62},{"cat":"防火","series":"APW 430 防火窓","type":"たてすべり出し窓（グレモンハンドル仕様）","variant":null,"note":null,"page":38},{"cat":"防火","series":"APW 430 防火窓","type":"すべり出し窓（グレモンハンドル仕様）","variant":null,"note":null,"page":42},{"cat":"一般","series":"APW 430","type":"たてすべり出し窓（グレモンハンドル仕様）","variant":null,"note":null,"page":46},{"cat":"一般","series":"APW 430","type":"たてすべり出し窓（オペレーターハンドル仕様）","variant":null,"note":null,"page":50},{"cat":"一般","series":"APW 430","type":"ツーアクション窓","variant":null,"note":null,"page":74},{"cat":"防火","series":"APW 430 防火窓","type":"FIX窓","variant":"テラスタイプ","note":null,"page":47},{"cat":"防火","series":"APW 330 防火窓","type":"FIX窓","variant":"テラスタイプ","note":null,"page":83},{"cat":"防火","series":"APW 330 防火窓","type":"FIX窓 スリムフレーム","variant":"テラスタイプ","note":null,"page":85},{"cat":"一般","series":"APW 430","type":"FIX窓","variant":"テラスタイプ","note":null,"page":71},{"cat":"一般","series":"APW 430","type":"FIX窓","variant":"スクエアサイズ","note":null,"page":70},{"cat":"防火","series":"APW 330 防火窓","type":"外倒し窓","variant":null,"note":null,"page":87},{"cat":"防火","series":"APW 330 防火窓","type":"引違い窓","variant":null,"note":null,"page":90},{"cat":"一般","series":"APW 430","type":"引違い窓","variant":null,"note":null,"page":78},{"cat":"防火","series":"APW 331 防火窓","type":"開き窓テラス","variant":null,"note":null,"page":108},{"cat":"一般","series":"APW 430","type":"開き窓テラス","variant":null,"note":null,"page":106},{"cat":"一般","series":"APW 430","type":"テラスドア","variant":null,"note":null,"page":110},{"cat":"一般","series":"APW 430","type":"勝手口ドア","variant":"本州規格","note":null,"page":114},{"cat":"防火","series":"APW 330 防火窓","type":"高所用すべり出し窓（端部操作仕様）","variant":null,"note":null,"page":78},{"cat":"一般","series":"APW 430","type":"高所用すべり出し窓（端部操作仕様）","variant":null,"note":null,"page":66},{"cat":"防火","series":"APW 330 防火窓","type":"引違い窓","variant":"2枚建","note":null,"page":90},{"cat":"防火","series":"APW 430/431 防火窓","type":"シャッター付引違い窓・引違いテラス戸","variant":"シャッター付引違い窓","note":null,"page":50},{"cat":"防火","series":"APW 330/331 防火窓","type":"シャッター付引違い窓・引違いテラス戸","variant":"シャッター付引違い窓","note":null,"page":100},{"cat":"一般","series":"APW 430","type":"シャッター付引違い窓","variant":"シャッター付引違い窓","note":null,"page":92},{"cat":"防火","series":"APW 330 防火窓","type":"すべり出し窓＋連窓（グレモンハンドル仕様）","variant":null,"note":"障子W036","page":66},{"cat":"一般","series":"APW 430","type":"たてすべり出し窓＋連窓（グレモンハンドル仕様）","variant":null,"note":"障子W036","page":46},{"cat":"一般","series":"APW 430","type":"たてすべり出し窓＋連窓（オペレーターハンドル仕様）","variant":null,"note":"障子W036","page":50},{"cat":"一般","series":"APW 430","type":"すべり出し窓＋連窓（グレモンハンドル仕様）","variant":null,"note":"障子W036","page":54},{"cat":"一般","series":"APW 430","type":"すべり出し窓＋連窓（オペレーターハンドル仕様）","variant":null,"note":"障子W036","page":58},{"cat":"一般","series":"APW 430","type":"引違い窓","variant":"2枚建","note":null,"page":78},{"cat":"防火","series":"APW 330 防火窓","type":"たてすべり出し窓＋連窓（グレモンハンドル仕様）","variant":null,"note":"障子W036","page":58},{"cat":"一般","series":"APW 430","type":"ツーアクション窓","variant":null,"note":"障子W036","page":74},{"cat":"防火","series":"APW 430/431 防火窓","type":"シャッター付引違い窓・引違いテラス戸","variant":"シャッター付引違いテラス戸","note":null,"page":50},{"cat":"防火","series":"APW 330/331 防火窓","type":"シャッター付引違い窓・引違いテラス戸","variant":"シャッター付引違いテラス戸","note":null,"page":100},{"cat":"一般","series":"APW 430","type":"引違いテラス戸","variant":"本州規格","note":null,"page":82},{"cat":"一般","series":"APW 430","type":"シャッター付引違いテラス戸","variant":"本州規格","note":null,"page":93},{"cat":"防火","series":"APW 330 防火窓","type":"すべり出し窓＋連窓（グレモンハンドル仕様）","variant":null,"note":"障子W060","page":66},{"cat":"一般","series":"APW 430","type":"たてすべり出し窓＋連窓（グレモンハンドル仕様）","variant":null,"note":"障子W060","page":46},{"cat":"一般","series":"APW 430","type":"たてすべり出し窓＋連窓（オペレーターハンドル仕様）","variant":null,"note":"障子W060","page":50},{"cat":"一般","series":"APW 430","type":"すべり出し窓＋連窓（グレモンハンドル仕様）","variant":null,"note":"障子W060","page":54},{"cat":"一般","series":"APW 430","type":"すべり出し窓＋連窓（オペレーターハンドル仕様）","variant":null,"note":"障子W060","page":58},{"cat":"防火","series":"APW 330 防火窓","type":"たてすべり出し窓＋連窓（グレモンハンドル仕様）","variant":null,"note":"障子W060","page":58},{"cat":"一般","series":"APW 430","type":"ツーアクション窓","variant":null,"note":"障子W060","page":74},{"cat":"防火","series":"APW 430/431 防火窓","type":"シャッター付引違い窓・引違いテラス戸","variant":"2枚建","note":null,"page":50},{"cat":"防火","series":"APW 330/331 防火窓","type":"シャッター付引違い窓・引違いテラス戸","variant":"2枚建","note":null,"page":100},{"cat":"一般","series":"APW 430","type":"シャッター付引違い窓","variant":"2枚建","note":null,"page":92},{"cat":"防火","series":"APW 331 防火窓","type":"引違いテラス戸","variant":"2枚建","note":null,"page":93},{"cat":"一般","series":"APW 430","type":"引違いテラス戸","variant":"本州規格","note":null,"page":83},{"cat":"一般","series":"APW 430","type":"シャッター付引違いテラス戸","variant":"2枚建","note":null,"page":93},{"cat":"一般","series":"APW 430","type":"大開口スライディング","variant":"北海道規格","note":null,"page":102},{"cat":"一般","series":"APW 430","type":"引違いテラス戸","variant":"2枚建","note":null,"page":82},{"cat":"一般","series":"APW 430","type":"引違いテラス戸","variant":"4枚建","note":null,"page":83},{"cat":"一般","series":"APW 430","type":"引違い窓","variant":"4枚建","note":null,"page":78},{"cat":"一般","series":"APW 430","type":"引違いテラス戸","variant":"4枚建","note":null,"page":82},{"cat":"一般","series":"APW 430","type":"たてすべり出し窓＋FIX段窓（グレモンハンドル仕様）","variant":null,"note":null,"page":46},{"cat":"一般","series":"APW 430","type":"たてすべり出し窓＋FIX段窓（オペレーターハンドル仕様）","variant":null,"note":null,"page":50},{"cat":"一般","series":"APW 430","type":"すべり出し窓＋FIX段窓（グレモンハンドル仕様）","variant":null,"note":null,"page":54},{"cat":"一般","series":"APW 430","type":"すべり出し窓＋FIX段窓（オペレーターハンドル仕様）","variant":null,"note":null,"page":58},{"cat":"一般","series":"APW 330","type":"FIX窓","variant":"窓タイプ","note":null,"page":68},{"cat":"一般","series":"APW 330","type":"FIX窓 スリムフレーム","variant":"窓タイプ","note":null,"page":70},{"cat":"一般","series":"APW 330","type":"片上げ下げ窓","variant":null,"note":null,"page":40},{"cat":"一般","series":"APW 330","type":"たてすべり出し窓（グレモンハンドル仕様）","variant":null,"note":null,"page":44},{"cat":"一般","series":"APW 330","type":"たてすべり出し窓＋連窓（グレモンハンドル仕様）","variant":null,"note":null,"page":44},{"cat":"一般","series":"APW 330","type":"たてすべり出し窓＋段窓（グレモンハンドル仕様）","variant":null,"note":null,"page":44},{"cat":"一般","series":"APW 330","type":"たてすべり出し窓（オペレーターハンドル仕様）","variant":null,"note":null,"page":48},{"cat":"一般","series":"APW 330","type":"たてすべり出し窓＋連窓（オペレーターハンドル仕様）","variant":null,"note":null,"page":48},{"cat":"一般","series":"APW 330","type":"たてすべり出し窓＋段窓（オペレーターハンドル仕様）","variant":null,"note":null,"page":48},{"cat":"一般","series":"APW 330","type":"すべり出し窓（グレモンハンドル仕様）","variant":null,"note":null,"page":52},{"cat":"一般","series":"APW 330","type":"すべり出し窓＋連窓（グレモンハンドル仕様）","variant":null,"note":null,"page":52},{"cat":"一般","series":"APW 330","type":"すべり出し窓＋段窓（グレモンハンドル仕様）","variant":null,"note":null,"page":52},{"cat":"一般","series":"APW 330","type":"すべり出し窓（オペレーターハンドル仕様）","variant":null,"note":null,"page":56},{"cat":"一般","series":"APW 330","type":"すべり出し窓＋連窓（オペレーターハンドル仕様）","variant":null,"note":null,"page":56},{"cat":"一般","series":"APW 330","type":"すべり出し窓＋段窓（オペレーターハンドル仕様）","variant":null,"note":null,"page":56},{"cat":"一般","series":"APW 330","type":"高所用すべり出し窓","variant":null,"note":null,"page":60},{"cat":"一般","series":"APW 330","type":"高所用すべり出し窓（端部操作仕様）","variant":null,"note":null,"page":64},{"cat":"一般","series":"APW 330","type":"外倒し窓（排煙錠仕様）","variant":null,"note":null,"page":76},{"cat":"一般","series":"APW 330","type":"外倒し窓（SL-80対応品）","variant":null,"note":null,"page":76},{"cat":"一般","series":"APW 330","type":"引違い窓","variant":null,"note":null,"page":80},{"cat":"一般","series":"APW 331","type":"引違いテラス戸","variant":null,"note":null,"page":88},{"cat":"一般","series":"APW 330","type":"シャッター付引違い窓","variant":null,"note":null,"page":98},{"cat":"一般","series":"APW 331","type":"シャッター付引違いテラス戸","variant":null,"note":null,"page":98},{"cat":"一般","series":"APW 331","type":"テラスドア","variant":null,"note":null,"page":108},{"cat":"一般","series":"APW 331","type":"勝手口ドア","variant":null,"note":null,"page":112},{"cat":"一般","series":"APW 331","type":"ハイブリッドスライディング引違いテラス戸","variant":null,"note":null,"page":114},{"cat":"一般","series":"APW 330","type":"FIX窓（テラスタイプ）","variant":null,"note":null,"page":69}],"codes":{"11403":[[30,1185,370],[31,1185,370],[86,1185,370]],"11405":[[30,1185,570],[32,1185,570],[31,1185,570],[25,1185,570],[86,1185,570],[89,1185,570]],"11407":[[32,1185,770],[25,1185,770],[89,1185,770]],"11409":[[33,1185,970],[32,1185,970],[34,1185,970],[25,1185,970],[35,1185,970],[89,1185,970],[91,1185,970]],"11411":[[33,1185,1170],[32,1185,1170],[34,1185,1170],[25,1185,1170],[35,1185,1170],[89,1185,1170],[91,1185,1170]],"11413":[[33,1185,1370],[32,1185,1370],[34,1185,1370],[25,1185,1370],[35,1185,1370],[89,1185,1370],[91,1185,1370]],"11903":[[2,1235,370],[36,1235,370],[30,1235,370],[0,1235,370],[10,1235,370],[31,1235,370],[7,1235,370],[70,1235,370],[71,1235,370],[79,1235,370],[80,1235,370],[83,1235,370],[86,1235,370]],"11905":[[36,1235,570],[30,1235,570],[0,1235,570],[32,1235,570],[37,1235,570],[38,1235,570],[10,1235,570],[39,1235,570],[40,1235,570],[31,1235,570],[7,1235,570],[41,1235,570],[70,1235,570],[71,1235,570],[79,1235,570],[80,1235,570],[83,1235,570],[86,1235,570],[87,1235,570],[88,1235,570],[89,1235,570]],"11907":[[42,1235,770],[36,1235,770],[32,1235,770],[37,1235,770],[38,1235,770],[10,1235,770],[39,1235,770],[40,1235,770],[7,1235,770],[43,1235,770],[41,1235,770],[70,1235,770],[71,1235,770],[74,1235,770],[77,1235,770],[79,1235,770],[80,1235,770],[83,1235,770],[87,1235,770],[88,1235,770],[89,1235,770]],"11909":[[33,1235,970],[42,1235,970],[32,1235,970],[34,1235,970],[37,1235,970],[38,1235,970],[10,1235,970],[7,1235,970],[43,1235,970],[41,1235,970],[35,1235,970],[70,1235,970],[71,1235,970],[72,1235,970],[74,1235,970],[77,1235,970],[79,1235,970],[87,1235,970],[88,1235,970],[89,1235,970],[91,1235,970]],"11911":[[33,1235,1170],[42,1235,1170],[32,1235,1170],[34,1235,1170],[37,1235,1170],[38,1235,1170],[10,1235,1170],[7,1235,1170],[43,1235,1170],[41,1235,1170],[35,1235,1170],[70,1235,1170],[71,1235,1170],[72,1235,1170],[74,1235,1170],[77,1235,1170],[79,1235,1170],[89,1235,1170],[91,1235,1170]],"11913":[[33,1235,1370],[42,1235,1370],[32,1235,1370],[34,1235,1370],[37,1235,1370],[38,1235,1370],[7,1235,1370],[43,1235,1370],[41,1235,1370],[35,1235,1370],[70,1235,1370],[71,1235,1370],[72,1235,1370],[74,1235,1370],[77,1235,1370],[89,1235,1370],[91,1235,1370]],"11915":[[37,1235,1570],[38,1235,1570],[7,1235,1570],[43,1235,1570]],"11918":[[44,1235,1830],[45,1235,1830],[7,1235,1870],[21,1235,1830],[46,1235,1870],[47,1235,1830],[90,1235,1870],[92,1235,1870],[96,1235,1830]],"11920":[[44,1235,2030],[45,1235,2030],[21,1235,2030],[46,1235,2070],[47,1235,2030],[90,1235,2070],[92,1235,2070],[96,1235,2030]],"11922":[[21,1235,2230],[96,1235,2230]],"11924":[[21,1235,2430],[96,1235,2430]],"12805":[[24,1320,570],[41,1320,570],[89,1320,570]],"12807":[[24,1320,770],[41,1320,770],[89,1320,770]],"12809":[[24,1320,970],[41,1320,970],[89,1320,970]],"12811":[[24,1320,1170],[41,1320,1170],[89,1320,1170]],"12813":[[24,1320,1370],[41,1320,1370],[89,1320,1370]],"13303":[[0,1370,370],[7,1370,370],[70,1370,370],[71,1370,370]],"13305":[[0,1370,570],[24,1370,570],[7,1370,570],[25,1370,570],[70,1370,570],[71,1370,570],[89,1370,570]],"13307":[[24,1370,770],[7,1370,770],[25,1370,770],[70,1370,770],[71,1370,770],[89,1370,770]],"13309":[[33,1370,970],[24,1370,970],[34,1370,970],[7,1370,970],[25,1370,970],[35,1370,970],[70,1370,970],[71,1370,970],[89,1370,970],[91,1370,970]],"13311":[[33,1370,1170],[24,1370,1170],[34,1370,1170],[7,1370,1170],[25,1370,1170],[35,1370,1170],[70,1370,1170],[71,1370,1170],[89,1370,1170],[91,1370,1170]],"13313":[[24,1370,1370],[7,1370,1370],[25,1370,1370],[70,1370,1370],[71,1370,1370],[89,1370,1370]],"13315":[[7,1370,1570]],"13318":[[44,1370,1830],[45,1370,1830],[7,1370,1870],[46,1370,1870],[47,1370,1830],[90,1370,1870],[92,1370,1870]],"13320":[[44,1370,2030],[45,1370,2030],[46,1370,2070],[47,1370,2030],[90,1370,2070],[92,1370,2070],[95,1370,2070]],"14607":[[10,1500,770]],"14609":[[10,1500,970]],"14611":[[10,1500,1170]],"14613":[[10,1500,1370]],"15005":[[24,1540,570],[25,1540,570],[89,1540,570]],"15007":[[24,1540,770],[25,1540,770],[89,1540,770]],"15009":[[33,1540,970],[24,1540,970],[34,1540,970],[25,1540,970],[35,1540,970],[89,1540,970],[91,1540,970]],"15011":[[33,1540,1170],[24,1540,1170],[34,1540,1170],[25,1540,1170],[35,1540,1170],[89,1540,1170],[91,1540,1170]],"15013":[[33,1540,1370],[24,1540,1370],[34,1540,1370],[25,1540,1370],[35,1540,1370],[89,1540,1370],[91,1540,1370]],"15018":[[44,1540,1830],[45,1540,1830],[46,1540,1870],[47,1540,1830],[90,1540,1870],[92,1540,1870],[95,1540,1870]],"15020":[[44,1540,2030],[45,1540,2030],[46,1540,2070],[47,1540,2030],[90,1540,2070],[92,1540,2070],[95,1540,2070]],"15022":[[44,1540,2230],[45,1540,2230],[46,1540,2270],[47,1540,2230],[90,1540,2270],[92,1540,2270],[95,1540,2270]],"15024":[[46,1540,2470],[90,1540,2430],[95,1540,2430]],"16003":[[2,1640,370],[48,1640,370],[30,1640,370],[0,1640,370],[31,1640,370],[7,1640,370],[70,1640,370],[71,1640,370],[79,1640,370],[80,1640,370],[83,1640,370],[86,1640,370]],"16005":[[48,1640,570],[30,1640,570],[0,1640,570],[24,1640,570],[49,1640,570],[37,1640,570],[50,1640,570],[38,1640,570],[51,1640,570],[39,1640,570],[52,1640,570],[40,1640,570],[31,1640,570],[7,1640,570],[25,1640,570],[70,1640,570],[71,1640,570],[80,1640,570],[83,1640,570],[86,1640,570],[87,1640,570],[88,1640,570],[89,1640,570]],"16007":[[53,1640,770],[48,1640,770],[24,1640,770],[49,1640,770],[37,1640,770],[50,1640,770],[38,1640,770],[51,1640,770],[39,1640,770],[52,1640,770],[40,1640,770],[7,1640,770],[54,1640,770],[43,1640,770],[25,1640,770],[70,1640,770],[71,1640,770],[74,1640,770],[77,1640,770],[80,1640,770],[83,1640,770],[87,1640,770],[88,1640,770],[89,1640,770]],"16009":[[55,1640,970],[53,1640,970],[24,1640,970],[56,1640,970],[49,1640,970],[37,1640,970],[50,1640,970],[38,1640,970],[7,1640,970],[54,1640,970],[43,1640,970],[25,1640,970],[57,1640,970],[70,1640,970],[71,1640,970],[74,1640,970],[77,1640,970],[87,1640,970],[88,1640,970],[89,1640,970],[91,1640,970]],"16011":[[55,1640,1170],[53,1640,1170],[24,1640,1170],[56,1640,1170],[49,1640,1170],[37,1640,1170],[50,1640,1170],[38,1640,1170],[7,1640,1170],[54,1640,1170],[43,1640,1170],[25,1640,1170],[57,1640,1170],[70,1640,1170],[71,1640,1170],[74,1640,1170],[77,1640,1170],[89,1640,1170],[91,1640,1170]],"16013":[[55,1640,1370],[53,1640,1370],[24,1640,1370],[56,1640,1370],[49,1640,1370],[37,1640,1370],[50,1640,1370],[38,1640,1370],[7,1640,1370],[54,1640,1370],[43,1640,1370],[25,1640,1370],[57,1640,1370],[70,1640,1370],[71,1640,1370],[74,1640,1370],[77,1640,1370],[89,1640,1370],[91,1640,1370]],"16015":[[49,1640,1570],[37,1640,1570],[50,1640,1570],[38,1640,1570],[7,1640,1570],[54,1640,1570],[43,1640,1570],[25,1640,1570],[70,1640,1570],[71,1640,1570]],"16018":[[55,1640,1830],[55,1640,1845],[58,1640,1830],[56,1640,1830],[56,1640,1845],[7,1640,1870],[21,1640,1830],[21,1640,1845],[46,1640,1870],[59,1640,1845],[60,1640,1830],[60,1640,1845],[61,1640,1870],[27,1640,1870],[28,1640,1830],[28,1640,1845],[90,1640,1870],[90,1640,1845],[92,1640,1870],[92,1640,1845],[95,1640,1870],[95,1640,1845],[96,1640,1830],[96,1640,1845]],"16020":[[55,1640,2030],[55,1640,2045],[58,1640,2030],[56,1640,2030],[56,1640,2045],[21,1640,2030],[21,1640,2045],[46,1640,2070],[59,1640,2045],[60,1640,2030],[60,1640,2045],[61,1640,2070],[27,1640,2070],[28,1640,2030],[28,1640,2045],[90,1640,2070],[90,1640,2045],[92,1640,2070],[92,1640,2045],[95,1640,2070],[95,1640,2045],[96,1640,2030],[96,1640,2045]],"16022":[[55,1640,2230],[55,1640,2245],[58,1640,2230],[56,1640,2230],[56,1640,2245],[21,1640,2230],[21,1640,2245],[46,1640,2270],[59,1640,2245],[60,1640,2230],[60,1640,2245],[61,1640,2270],[27,1640,2270],[28,1640,2230],[28,1640,2245],[90,1640,2270],[90,1640,2245],[92,1640,2270],[92,1640,2245],[95,1640,2270],[95,1640,2245],[96,1640,2230],[96,1640,2245]],"16024":[[21,1640,2430],[21,1640,2445],[46,1640,2470],[59,1640,2445],[61,1640,2470],[90,1640,2430],[95,1640,2430],[95,1640,2445],[96,1640,2430],[96,1640,2445]],"16503":[[2,1690,370],[48,1690,370],[30,1690,370],[0,1690,370],[31,1690,370],[7,1690,370],[70,1690,370],[71,1690,370],[79,1690,370],[80,1690,370],[83,1690,370],[86,1690,370]],"16505":[[48,1690,570],[30,1690,570],[0,1690,570],[24,1690,570],[49,1690,570],[37,1690,570],[50,1690,570],[38,1690,570],[10,1690,570],[51,1690,570],[39,1690,570],[52,1690,570],[40,1690,570],[31,1690,570],[7,1690,570],[25,1690,570],[70,1690,570],[71,1690,570],[80,1690,570],[83,1690,570],[86,1690,570],[87,1690,570],[88,1690,570],[89,1690,570]],"16507":[[33,1690,770],[53,1690,770],[48,1690,770],[24,1690,770],[34,1690,770],[37,1690,770],[49,1690,770],[38,1690,770],[50,1690,770],[39,1690,770],[10,1690,770],[51,1690,770],[52,1690,770],[40,1690,770],[7,1690,770],[54,1690,770],[43,1690,770],[25,1690,770],[35,1690,770],[70,1690,770],[71,1690,770],[74,1690,770],[77,1690,770],[80,1690,770],[83,1690,770],[87,1690,770],[88,1690,770],[89,1690,770],[91,1690,770]],"16509":[[33,1690,970],[53,1690,970],[24,1690,970],[34,1690,970],[37,1690,970],[49,1690,970],[38,1690,970],[50,1690,970],[7,1690,970],[54,1690,970],[43,1690,970],[25,1690,970],[35,1690,970],[70,1690,970],[71,1690,970],[74,1690,970],[77,1690,970],[87,1690,970],[88,1690,970],[89,1690,970],[91,1690,970]],"16511":[[33,1690,1170],[53,1690,1170],[24,1690,1170],[34,1690,1170],[49,1690,1170],[37,1690,1170],[50,1690,1170],[38,1690,1170],[7,1690,1170],[54,1690,1170],[43,1690,1170],[25,1690,1170],[35,1690,1170],[70,1690,1170],[71,1690,1170],[74,1690,1170],[77,1690,1170],[89,1690,1170],[91,1690,1170]],"16513":[[33,1690,1370],[53,1690,1370],[24,1690,1370],[34,1690,1370],[49,1690,1370],[37,1690,1370],[50,1690,1370],[38,1690,1370],[7,1690,1370],[54,1690,1370],[43,1690,1370],[25,1690,1370],[35,1690,1370],[70,1690,1370],[71,1690,1370],[72,1690,1370],[74,1690,1370],[77,1690,1370],[89,1690,1370],[91,1690,1370]],"16515":[[49,1690,1570],[37,1690,1570],[50,1690,1570],[38,1690,1570],[7,1690,1570],[54,1690,1570],[43,1690,1570],[25,1690,1570],[70,1690,1570],[71,1690,1570]],"16518":[[55,1690,1830],[56,1690,1830],[7,1690,1870],[21,1690,1830],[62,1690,1870],[60,1690,1830],[61,1690,1870],[27,1690,1870],[28,1690,1830],[90,1690,1870],[92,1690,1870],[95,1690,1870],[96,1690,1830]],"16520":[[55,1690,2030],[56,1690,2030],[21,1690,2030],[62,1690,2070],[60,1690,2030],[61,1690,2070],[27,1690,2070],[28,1690,2030],[90,1690,2070],[92,1690,2070],[95,1690,2070],[96,1690,2030]],"16522":[[55,1690,2230],[56,1690,2230],[21,1690,2230],[62,1690,2270],[60,1690,2230],[61,1690,2270],[27,1690,2270],[28,1690,2230],[90,1690,2270],[92,1690,2270],[95,1690,2270],[96,1690,2230]],"16524":[[21,1690,2430],[62,1690,2470],[61,1690,2470],[90,1690,2430],[95,1690,2430],[96,1690,2430]],"17809":[[33,1820,970],[34,1820,970],[25,1820,970],[35,1820,970],[89,1820,970],[91,1820,970]],"17811":[[33,1820,1170],[34,1820,1170],[25,1820,1170],[35,1820,1170],[89,1820,1170],[91,1820,1170]],"17813":[[25,1820,1370],[89,1820,1370]],"17818":[[44,1820,1830],[45,1820,1830],[62,1820,1870],[47,1820,1830],[90,1820,1870],[92,1820,1870],[95,1820,1870]],"17820":[[44,1820,2030],[45,1820,2030],[62,1820,2070],[47,1820,2030],[90,1820,2070],[92,1820,2070],[95,1820,2070]],"17822":[[44,1820,2230],[45,1820,2230],[62,1820,2270],[47,1820,2230],[90,1820,2270],[92,1820,2270],[95,1820,2270]],"18303":[[7,1870,370],[70,1870,370],[71,1870,370]],"18305":[[7,1870,570],[25,1870,570],[70,1870,570],[71,1870,570],[89,1870,570]],"18307":[[7,1870,770],[25,1870,770],[70,1870,770],[71,1870,770],[89,1870,770]],"18309":[[33,1870,970],[34,1870,970],[7,1870,970],[25,1870,970],[35,1870,970],[70,1870,970],[71,1870,970],[89,1870,970],[91,1870,970]],"18311":[[33,1870,1170],[34,1870,1170],[25,1870,1170],[35,1870,1170],[89,1870,1170],[91,1870,1170]],"18313":[[33,1870,1370],[34,1870,1370],[25,1870,1370],[35,1870,1370],[89,1870,1370],[91,1870,1370]],"18315":[[25,1870,1570]],"18318":[[44,1870,1830],[45,1870,1830],[46,1870,1870],[47,1870,1830],[90,1870,1870],[92,1870,1870],[95,1870,1870]],"18320":[[44,1870,2030],[45,1870,2030],[46,1870,2070],[47,1870,2030],[90,1870,2070],[92,1870,2070],[95,1870,2070]],"18322":[[44,1870,2230],[45,1870,2230],[46,1870,2270],[47,1870,2230],[90,1870,2270],[92,1870,2270],[95,1870,2270]],"18324":[[46,1870,2470],[90,1870,2430],[95,1870,2430]],"23309":[[33,2370,970],[34,2370,970],[25,2370,970],[35,2370,970],[89,2370,970],[91,2370,970]],"23311":[[33,2370,1170],[34,2370,1170],[25,2370,1170],[35,2370,1170],[89,2370,1170],[91,2370,1170]],"23313":[[33,2370,1370],[34,2370,1370],[25,2370,1370],[35,2370,1370],[89,2370,1370],[91,2370,1370]],"23318":[[44,2370,1830],[45,2370,1830],[46,2370,1870],[47,2370,1830],[90,2370,1870],[92,2370,1870],[95,2370,1870]],"23320":[[44,2370,2030],[45,2370,2030],[46,2370,2070],[47,2370,2030],[90,2370,2070],[92,2370,2070],[95,2370,2070]],"23322":[[44,2370,2230],[45,2370,2230],[46,2370,2270],[47,2370,2230],[90,2370,2270],[92,2370,2270],[95,2370,2270]],"23324":[[46,2370,2470],[90,2370,2430],[95,2370,2430]],"24309":[[34,2470,970],[89,2470,970],[91,2470,970]],"24311":[[34,2470,1170],[89,2470,1170],[91,2470,1170]],"24313":[[34,2470,1370],[89,2470,1370],[91,2470,1370]],"24318":[[44,2470,1845],[45,2470,1845],[59,2470,1845],[63,2470,1845],[47,2470,1845],[28,2470,1845],[90,2470,1845],[92,2470,1845],[95,2470,1845]],"24320":[[44,2470,2045],[45,2470,2045],[59,2470,2045],[63,2470,2045],[47,2470,2045],[28,2470,2045],[90,2470,2045],[92,2470,2045],[95,2470,2045]],"24322":[[44,2470,2245],[45,2470,2245],[59,2470,2245],[63,2470,2245],[47,2470,2245],[28,2470,2245],[90,2470,2245],[92,2470,2245],[95,2470,2245]],"24324":[[59,2470,2445],[63,2470,2445],[95,2470,2445]],"25109":[[33,2550,970],[34,2550,970],[41,2550,970],[64,2550,970],[35,2550,970],[89,2550,970],[91,2550,970]],"25111":[[33,2550,1170],[34,2550,1170],[41,2550,1170],[64,2550,1170],[35,2550,1170],[89,2550,1170],[91,2550,1170]],"25113":[[33,2550,1370],[34,2550,1370],[41,2550,1370],[64,2550,1370],[35,2550,1370],[89,2550,1370],[91,2550,1370]],"25118":[[44,2550,1830],[45,2550,1830],[46,2550,1870],[65,2550,1870],[47,2550,1830],[61,2550,1870],[90,2550,1870],[92,2550,1870],[95,2550,1870]],"25120":[[44,2550,2030],[45,2550,2030],[46,2550,2070],[65,2550,2070],[47,2550,2030],[61,2550,2070],[90,2550,2070],[92,2550,2070],[95,2550,2070]],"25122":[[44,2550,2230],[45,2550,2230],[46,2550,2270],[65,2550,2270],[47,2550,2230],[61,2550,2270],[90,2550,2270],[92,2550,2270],[95,2550,2270]],"25124":[[46,2550,2470],[65,2550,2470],[61,2550,2470],[90,2550,2430],[95,2550,2430]],"25609":[[33,2600,970],[34,2600,970],[25,2600,970],[64,2600,970],[35,2600,970],[89,2600,970],[91,2600,970]],"25611":[[33,2600,1170],[34,2600,1170],[49,2600,1170],[50,2600,1170],[54,2600,1170],[25,2600,1170],[64,2600,1170],[35,2600,1170],[74,2600,1170],[77,2600,1170],[89,2600,1170],[91,2600,1170]],"25613":[[34,2600,1370],[49,2600,1370],[50,2600,1370],[54,2600,1370],[25,2600,1370],[64,2600,1370],[35,2600,1370],[74,2600,1370],[77,2600,1370],[89,2600,1370],[91,2600,1370]],"25615":[[49,2600,1570],[50,2600,1570],[54,2600,1570],[25,2600,1570],[64,2600,1570]],"25618":[[44,2600,1830],[45,2600,1830],[46,2600,1870],[65,2600,1870],[47,2600,1830],[61,2600,1870],[27,2600,1870],[28,2600,1830],[90,2600,1870],[92,2600,1870],[95,2600,1870]],"25620":[[44,2600,2030],[45,2600,2030],[46,2600,2070],[65,2600,2070],[47,2600,2030],[61,2600,2070],[27,2600,2070],[28,2600,2030],[90,2600,2070],[92,2600,2070],[95,2600,2070]],"25622":[[44,2600,2230],[45,2600,2230],[46,2600,2270],[65,2600,2270],[47,2600,2230],[61,2600,2270],[27,2600,2270],[28,2600,2230],[90,2600,2270],[92,2600,2270],[95,2600,2270]],"25624":[[46,2600,2470],[65,2600,2470],[61,2600,2470],[90,2600,2430],[95,2600,2430]],"27018":[[95,2740,1845]],"27020":[[95,2740,2045]],"27022":[[95,2740,2245]],"27024":[[95,2740,2445]],"27818":[[61,2820,1870],[95,2820,1870]],"27820":[[61,2820,2070],[95,2820,2070]],"27822":[[61,2820,2270],[95,2820,2270]],"27824":[[61,2820,2470],[95,2820,2430]],"34718":[[95,3510,1870]],"34720":[[95,3510,2070]],"34722":[[95,3510,2270]],"34724":[[95,3510,2430]],"114033":[[31,1185,400]],"114043":[[31,1185,500]],"116113":[[10,1200,1200],[22,1200,1200],[17,1200,1200],[70,1200,1200],[71,1200,1200],[79,1200,1200]],"119018":[[0,1235,250],[70,1235,250],[71,1235,250]],"119023":[[2,1235,300],[0,1235,300],[7,1235,300],[70,1235,300],[71,1235,300],[79,1235,300]],"119033":[[0,1235,400],[10,1235,400],[31,1235,400],[7,1235,400],[70,1235,400],[71,1235,400],[79,1235,400]],"119043":[[0,1235,500],[10,1235,500],[31,1235,500],[7,1235,500],[70,1235,500],[71,1235,500],[79,1235,500]],"133018":[[0,1370,250],[70,1370,250],[71,1370,250]],"133023":[[0,1370,300],[7,1370,300],[70,1370,300],[71,1370,300]],"133033":[[0,1370,400],[7,1370,400],[70,1370,400],[71,1370,400]],"133043":[[0,1370,500],[7,1370,500],[70,1370,500],[71,1370,500]],"146143":[[10,1500,1500],[22,1500,1500],[70,1500,1500],[71,1500,1500]],"160018":[[0,1640,250],[70,1640,250],[71,1640,250]],"160023":[[2,1640,300],[0,1640,300],[7,1640,300],[70,1640,300],[71,1640,300],[79,1640,300]],"160033":[[0,1640,400],[31,1640,400],[7,1640,400],[70,1640,400],[71,1640,400]],"160043":[[0,1640,500],[31,1640,500],[7,1640,500],[70,1640,500],[71,1640,500]],"165018":[[0,1690,250],[70,1690,250],[71,1690,250]],"165023":[[2,1690,300],[0,1690,300],[7,1690,300],[70,1690,300],[71,1690,300],[79,1690,300]],"165033":[[0,1690,400],[31,1690,400],[7,1690,400],[70,1690,400],[71,1690,400]],"165043":[[0,1690,500],[10,1690,500],[31,1690,500],[7,1690,500],[70,1690,500],[71,1690,500]],"183018":[[70,1870,250],[71,1870,250]],"183023":[[7,1870,300],[70,1870,300],[71,1870,300]],"183033":[[7,1870,400],[70,1870,400],[71,1870,400]],"183043":[[7,1870,500],[70,1870,500],[71,1870,500]],"021018":[[0,250,250],[1,250,250],[70,250,250],[71,250,250]],"02109":[[0,250,970],[1,250,970],[70,250,970],[71,250,970]],"02111":[[0,250,1170],[1,250,1170],[70,250,1170],[71,250,1170]],"02113":[[0,250,1370],[1,250,1370],[70,250,1370],[71,250,1370]],"02115":[[0,250,1570],[1,250,1570],[70,250,1570],[71,250,1570]],"02118":[[0,250,1870],[1,250,1870],[70,250,1870],[71,250,1870]],"02120":[[0,250,2070],[1,250,2070],[70,250,2070],[71,250,2070]],"026023":[[2,300,300],[0,300,300],[1,300,300],[70,300,300],[71,300,300],[79,300,300]],"02607":[[3,300,770],[4,300,770],[73,300,770],[76,300,770]],"02609":[[5,300,970],[6,300,970],[3,300,970],[4,300,970],[0,300,970],[1,300,970],[7,300,970],[70,300,970],[71,300,970],[72,300,970],[73,300,970],[76,300,970]],"02611":[[5,300,1170],[6,300,1170],[3,300,1170],[4,300,1170],[0,300,1170],[1,300,1170],[7,300,1170],[70,300,1170],[71,300,1170],[72,300,1170],[73,300,1170],[76,300,1170]],"02613":[[5,300,1370],[6,300,1370],[3,300,1370],[4,300,1370],[0,300,1370],[1,300,1370],[7,300,1370],[70,300,1370],[71,300,1370],[72,300,1370],[73,300,1370],[76,300,1370]],"02615":[[5,300,1570],[3,300,1570],[0,300,1570],[1,300,1570],[7,300,1570],[70,300,1570],[71,300,1570],[73,300,1570]],"02618":[[5,300,1870],[3,300,1870],[0,300,1870],[1,300,1870],[7,300,1870],[70,300,1870],[71,300,1870],[73,300,1870],[75,300,1870],[78,300,1870]],"02620":[[5,300,2070],[3,300,2070],[0,300,2070],[1,300,2070],[7,300,2070],[70,300,2070],[71,300,2070],[73,300,2070],[75,300,2070],[78,300,2070]],"02622":[[7,300,2270],[70,300,2270],[71,300,2270],[73,300,2270],[75,300,2270],[78,300,2270]],"03603":[[2,405,370],[8,405,370],[9,405,370],[0,405,370],[1,405,370],[7,405,370],[70,405,370],[71,405,370],[79,405,370],[82,405,370],[85,405,370]],"036033":[[2,405,400],[8,405,400],[0,405,400],[70,405,400],[71,405,400],[79,405,400],[82,405,400]],"036043":[[2,405,500],[8,405,500],[0,405,500],[10,405,500],[11,405,500],[12,405,500],[70,405,500],[71,405,500],[79,405,500],[82,405,500]],"03605":[[13,405,570],[14,405,570],[5,405,570],[2,405,570],[8,405,570],[9,405,570],[0,405,570],[1,405,570],[15,405,570],[16,405,570],[10,405,570],[11,405,570],[12,405,570],[7,405,570],[70,405,570],[71,405,570],[79,405,570],[82,405,570],[85,405,570]],"03607":[[13,405,770],[14,405,770],[5,405,770],[3,405,770],[4,405,770],[2,405,770],[8,405,770],[9,405,770],[0,405,770],[1,405,770],[15,405,770],[16,405,770],[10,405,770],[11,405,770],[12,405,770],[7,405,770],[17,405,770],[70,405,770],[71,405,770],[73,405,770],[76,405,770],[79,405,770],[82,405,770],[85,405,770]],"03609":[[13,405,970],[5,405,970],[6,405,970],[3,405,970],[4,405,970],[9,405,970],[0,405,970],[1,405,970],[15,405,970],[16,405,970],[10,405,970],[11,405,970],[12,405,970],[7,405,970],[17,405,970],[68,405,970],[69,405,970],[70,405,970],[71,405,970],[72,405,970],[73,405,970],[76,405,970],[81,405,970],[84,405,970],[85,405,970]],"03611":[[13,405,1170],[5,405,1170],[6,405,1170],[3,405,1170],[4,405,1170],[0,405,1170],[1,405,1170],[15,405,1170],[16,405,1170],[10,405,1170],[11,405,1170],[12,405,1170],[7,405,1170],[17,405,1170],[68,405,1170],[69,405,1170],[70,405,1170],[71,405,1170],[72,405,1170],[73,405,1170],[76,405,1170],[81,405,1170],[84,405,1170],[85,405,1170]],"03613":[[13,405,1370],[5,405,1370],[6,405,1370],[3,405,1370],[4,405,1370],[0,405,1370],[1,405,1370],[15,405,1370],[16,405,1370],[10,405,1370],[11,405,1370],[7,405,1370],[17,405,1370],[68,405,1370],[69,405,1370],[70,405,1370],[71,405,1370],[72,405,1370],[73,405,1370],[76,405,1370],[81,405,1370],[84,405,1370]],"03615":[[5,405,1570],[3,405,1570],[0,405,1570],[1,405,1570],[15,405,1570],[16,405,1570],[7,405,1570],[17,405,1570],[70,405,1570],[71,405,1570],[73,405,1570]],"03618":[[5,405,1870],[18,405,1830],[18,405,1845],[3,405,1870],[0,405,1870],[19,405,1830],[19,405,1845],[1,405,1870],[20,405,1830],[20,405,1845],[15,405,1870],[16,405,1870],[7,405,1870],[21,405,1845],[21,405,1830],[66,405,1870],[67,405,1870],[70,405,1870],[71,405,1870],[73,405,1870],[75,405,1870],[78,405,1870],[96,405,1830],[96,405,1845]],"03620":[[5,405,2070],[18,405,2030],[18,405,2045],[3,405,2070],[0,405,2070],[19,405,2030],[19,405,2045],[1,405,2070],[20,405,2030],[20,405,2045],[15,405,2070],[16,405,2070],[7,405,2070],[21,405,2030],[21,405,2045],[66,405,2070],[67,405,2070],[70,405,2070],[71,405,2070],[73,405,2070],[75,405,2070],[78,405,2070],[96,405,2030],[96,405,2045]],"03622":[[15,405,2270],[16,405,2270],[7,405,2270],[21,405,2230],[21,405,2245],[66,405,2270],[67,405,2270],[70,405,2270],[71,405,2270],[73,405,2270],[75,405,2270],[78,405,2270],[96,405,2230],[96,405,2245]],"03624":[[21,405,2430],[21,405,2445],[96,405,2430],[96,405,2445]],"04603":[[2,500,370],[8,500,370],[9,500,370],[0,500,370],[1,500,370],[10,500,370],[11,500,370],[12,500,370],[70,500,370],[71,500,370],[79,500,370],[82,500,370],[85,500,370]],"046033":[[2,500,400],[8,500,400],[0,500,400],[10,500,400],[11,500,400],[12,500,400],[70,500,400],[71,500,400],[79,500,400],[82,500,400]],"046043":[[14,500,500],[5,500,500],[2,500,500],[8,500,500],[0,500,500],[10,500,500],[11,500,500],[12,500,500],[22,500,500],[70,500,500],[71,500,500],[79,500,500],[82,500,500]],"04605":[[13,500,570],[14,500,570],[5,500,570],[2,500,570],[8,500,570],[9,500,570],[0,500,570],[1,500,570],[15,500,570],[16,500,570],[10,500,570],[11,500,570],[12,500,570],[7,500,570],[70,500,570],[71,500,570],[79,500,570],[82,500,570],[85,500,570]],"04607":[[13,500,770],[14,500,770],[5,500,770],[3,500,770],[4,500,770],[2,500,770],[8,500,770],[9,500,770],[0,500,770],[1,500,770],[15,500,770],[16,500,770],[10,500,770],[11,500,770],[12,500,770],[7,500,770],[17,500,770],[70,500,770],[71,500,770],[73,500,770],[76,500,770],[79,500,770],[82,500,770],[85,500,770]],"04609":[[13,500,970],[14,500,970],[5,500,970],[3,500,970],[4,500,970],[2,500,970],[8,500,970],[9,500,970],[0,500,970],[1,500,970],[15,500,970],[16,500,970],[10,500,970],[11,500,970],[12,500,970],[7,500,970],[17,500,970],[70,500,970],[71,500,970],[73,500,970],[76,500,970],[79,500,970],[82,500,970],[85,500,970]],"04611":[[13,500,1170],[5,500,1170],[3,500,1170],[4,500,1170],[0,500,1170],[1,500,1170],[15,500,1170],[16,500,1170],[7,500,1170],[17,500,1170],[70,500,1170],[71,500,1170],[73,500,1170],[76,500,1170]],"04613":[[13,500,1370],[5,500,1370],[3,500,1370],[4,500,1370],[0,500,1370],[1,500,1370],[15,500,1370],[16,500,1370],[7,500,1370],[17,500,1370],[70,500,1370],[71,500,1370],[73,500,1370],[76,500,1370]],"04615":[[5,500,1570],[0,500,1570],[1,500,1570],[15,500,1570],[16,500,1570],[7,500,1570],[17,500,1570],[70,500,1570],[71,500,1570]],"04618":[[5,500,1870],[0,500,1870],[1,500,1870],[7,500,1870],[70,500,1870],[71,500,1870]],"04620":[[5,500,2070],[0,500,2070],[1,500,2070],[7,500,2070],[70,500,2070],[71,500,2070]],"04622":[[7,500,2270],[70,500,2270],[71,500,2270]],"060018":[[0,640,250],[1,640,250],[70,640,250],[71,640,250]],"060023":[[5,640,300],[2,640,300],[0,640,300],[1,640,300],[7,640,300],[70,640,300],[71,640,300],[79,640,300]],"06003":[[14,640,370],[5,640,370],[2,640,370],[8,640,370],[9,640,370],[0,640,370],[1,640,370],[10,640,370],[11,640,370],[12,640,370],[7,640,370],[70,640,370],[71,640,370],[79,640,370],[82,640,370],[85,640,370]],"060033":[[14,640,400],[5,640,400],[2,640,400],[8,640,400],[0,640,400],[10,640,400],[11,640,400],[12,640,400],[7,640,400],[70,640,400],[71,640,400],[79,640,400],[82,640,400]],"060043":[[14,640,500],[5,640,500],[2,640,500],[8,640,500],[0,640,500],[10,640,500],[11,640,500],[12,640,500],[7,640,500],[70,640,500],[71,640,500],[79,640,500],[82,640,500]],"06005":[[13,640,570],[14,640,570],[5,640,570],[2,640,570],[8,640,570],[9,640,570],[0,640,570],[1,640,570],[23,640,570],[24,640,570],[15,640,570],[16,640,570],[10,640,570],[11,640,570],[12,640,570],[7,640,570],[25,640,570],[70,640,570],[71,640,570],[79,640,570],[82,640,570],[85,640,570],[87,640,570],[88,640,570],[89,640,570]],"06007":[[13,640,770],[14,640,770],[5,640,770],[3,640,770],[4,640,770],[2,640,770],[8,640,770],[9,640,770],[0,640,770],[1,640,770],[23,640,770],[24,640,770],[15,640,770],[16,640,770],[10,640,770],[11,640,770],[12,640,770],[7,640,770],[17,640,770],[25,640,770],[70,640,770],[71,640,770],[73,640,770],[76,640,770],[79,640,770],[82,640,770],[85,640,770],[87,640,770],[88,640,770],[89,640,770]],"06009":[[13,640,970],[14,640,970],[5,640,970],[6,640,970],[3,640,970],[4,640,970],[2,640,970],[8,640,970],[9,640,970],[0,640,970],[1,640,970],[24,640,970],[15,640,970],[16,640,970],[10,640,970],[11,640,970],[12,640,970],[7,640,970],[17,640,970],[25,640,970],[68,640,970],[69,640,970],[70,640,970],[71,640,970],[72,640,970],[73,640,970],[76,640,970],[79,640,970],[81,640,970],[82,640,970],[84,640,970],[85,640,970],[87,640,970],[88,640,970],[89,640,970]],"06011":[[13,640,1170],[5,640,1170],[6,640,1170],[3,640,1170],[4,640,1170],[0,640,1170],[1,640,1170],[15,640,1170],[16,640,1170],[10,640,1170],[11,640,1170],[12,640,1170],[7,640,1170],[17,640,1170],[68,640,1170],[69,640,1170],[70,640,1170],[71,640,1170],[72,640,1170],[73,640,1170],[76,640,1170],[79,640,1170],[81,640,1170],[84,640,1170],[85,640,1170]],"06013":[[13,640,1370],[5,640,1370],[6,640,1370],[3,640,1370],[4,640,1370],[0,640,1370],[1,640,1370],[15,640,1370],[16,640,1370],[10,640,1370],[11,640,1370],[7,640,1370],[17,640,1370],[68,640,1370],[69,640,1370],[70,640,1370],[71,640,1370],[72,640,1370],[73,640,1370],[76,640,1370],[81,640,1370],[84,640,1370]],"06015":[[5,640,1570],[0,640,1570],[1,640,1570],[15,640,1570],[16,640,1570],[7,640,1570],[17,640,1570],[70,640,1570],[71,640,1570]],"06018":[[5,640,1870],[18,640,1830],[18,640,1845],[0,640,1870],[19,640,1830],[19,640,1845],[1,640,1870],[20,640,1830],[20,640,1845],[26,640,1830],[15,640,1870],[16,640,1870],[7,640,1870],[21,640,1845],[21,640,1830],[27,640,1870],[28,640,1830],[28,640,1845],[29,640,1870],[66,640,1870],[67,640,1870],[70,640,1870],[71,640,1870],[75,640,1870],[78,640,1870],[93,640,1870],[93,640,1845],[94,640,1870],[94,640,1845],[96,640,1830],[96,640,1845]],"06020":[[5,640,2070],[18,640,2030],[18,640,2045],[0,640,2070],[19,640,2030],[19,640,2045],[1,640,2070],[20,640,2030],[20,640,2045],[26,640,2030],[15,640,2070],[16,640,2070],[7,640,2070],[21,640,2030],[21,640,2045],[27,640,2070],[28,640,2030],[28,640,2045],[29,640,2070],[66,640,2070],[67,640,2070],[70,640,2070],[71,640,2070],[75,640,2070],[78,640,2070],[93,640,2070],[93,640,2045],[94,640,2070],[94,640,2045],[96,640,2030],[96,640,2045]],"06022":[[15,640,2270],[16,640,2270],[7,640,2270],[21,640,2230],[21,640,2245],[27,640,2270],[28,640,2230],[28,640,2245],[29,640,2270],[66,640,2270],[67,640,2270],[70,640,2270],[71,640,2270],[75,640,2270],[78,640,2270],[93,640,2270],[93,640,2245],[94,640,2270],[94,640,2245],[96,640,2230],[96,640,2245]],"06024":[[21,640,2430],[21,640,2445],[96,640,2430],[96,640,2445]],"069018":[[0,730,250],[1,730,250],[70,730,250],[71,730,250]],"069023":[[5,730,300],[2,730,300],[0,730,300],[1,730,300],[7,730,300],[70,730,300],[71,730,300],[79,730,300]],"06903":[[14,730,370],[5,730,370],[2,730,370],[8,730,370],[9,730,370],[0,730,370],[1,730,370],[10,730,370],[11,730,370],[12,730,370],[7,730,370],[70,730,370],[71,730,370],[79,730,370],[82,730,370],[85,730,370]],"069033":[[14,730,400],[5,730,400],[2,730,400],[8,730,400],[0,730,400],[10,730,400],[11,730,400],[12,730,400],[7,730,400],[70,730,400],[71,730,400],[79,730,400],[82,730,400]],"069043":[[14,730,500],[5,730,500],[2,730,500],[8,730,500],[0,730,500],[10,730,500],[11,730,500],[12,730,500],[7,730,500],[70,730,500],[71,730,500],[79,730,500],[82,730,500]],"06905":[[13,730,570],[14,730,570],[5,730,570],[2,730,570],[8,730,570],[9,730,570],[0,730,570],[1,730,570],[23,730,570],[24,730,570],[15,730,570],[16,730,570],[10,730,570],[11,730,570],[12,730,570],[7,730,570],[25,730,570],[70,730,570],[71,730,570],[79,730,570],[82,730,570],[85,730,570],[87,730,570],[88,730,570],[89,730,570]],"06907":[[13,730,770],[14,730,770],[5,730,770],[2,730,770],[8,730,770],[9,730,770],[0,730,770],[1,730,770],[23,730,770],[24,730,770],[15,730,770],[16,730,770],[10,730,770],[11,730,770],[12,730,770],[7,730,770],[17,730,770],[25,730,770],[70,730,770],[71,730,770],[73,730,770],[76,730,770],[79,730,770],[82,730,770],[85,730,770],[87,730,770],[88,730,770],[89,730,770]],"06909":[[13,730,970],[14,730,970],[5,730,970],[6,730,970],[2,730,970],[8,730,970],[9,730,970],[0,730,970],[1,730,970],[24,730,970],[15,730,970],[16,730,970],[10,730,970],[11,730,970],[12,730,970],[7,730,970],[17,730,970],[25,730,970],[68,730,970],[69,730,970],[70,730,970],[71,730,970],[72,730,970],[73,730,970],[76,730,970],[79,730,970],[81,730,970],[82,730,970],[84,730,970],[85,730,970],[87,730,970],[88,730,970],[89,730,970]],"06911":[[13,730,1170],[5,730,1170],[6,730,1170],[0,730,1170],[1,730,1170],[15,730,1170],[16,730,1170],[10,730,1170],[11,730,1170],[7,730,1170],[17,730,1170],[68,730,1170],[69,730,1170],[70,730,1170],[71,730,1170],[72,730,1170],[73,730,1170],[76,730,1170],[81,730,1170],[84,730,1170]],"06913":[[13,730,1370],[5,730,1370],[6,730,1370],[0,730,1370],[1,730,1370],[15,730,1370],[16,730,1370],[10,730,1370],[11,730,1370],[7,730,1370],[17,730,1370],[68,730,1370],[69,730,1370],[70,730,1370],[71,730,1370],[72,730,1370],[73,730,1370],[76,730,1370],[81,730,1370],[84,730,1370]],"06915":[[5,730,1570],[0,730,1570],[1,730,1570],[15,730,1570],[16,730,1570],[7,730,1570],[17,730,1570],[70,730,1570],[71,730,1570]],"06918":[[5,730,1870],[18,730,1845],[0,730,1870],[19,730,1845],[1,730,1870],[20,730,1845],[26,730,1830],[7,730,1870],[21,730,1845],[27,730,1870],[28,730,1830],[28,730,1845],[29,730,1870],[70,730,1870],[71,730,1870],[93,730,1870],[93,730,1845],[94,730,1870],[94,730,1845],[96,730,1845]],"06920":[[5,730,2070],[18,730,2045],[0,730,2070],[19,730,2045],[1,730,2070],[20,730,2045],[26,730,2030],[7,730,2070],[21,730,2045],[27,730,2070],[28,730,2030],[28,730,2045],[29,730,2070],[70,730,2070],[71,730,2070],[93,730,2070],[93,730,2045],[94,730,2070],[94,730,2045],[96,730,2045]],"06922":[[7,730,2270],[21,730,2245],[27,730,2270],[28,730,2230],[28,730,2245],[29,730,2270],[70,730,2270],[71,730,2270],[93,730,2270],[93,730,2245],[94,730,2270],[94,730,2245],[96,730,2245]],"06924":[[21,730,2445],[96,730,2445]],"074018":[[0,780,250],[1,780,250],[70,780,250],[71,780,250]],"074023":[[5,780,300],[2,780,300],[0,780,300],[1,780,300],[7,780,300],[70,780,300],[71,780,300],[79,780,300]],"07403":[[14,780,370],[5,780,370],[2,780,370],[8,780,370],[9,780,370],[0,780,370],[1,780,370],[10,780,370],[11,780,370],[12,780,370],[7,780,370],[70,780,370],[71,780,370],[79,780,370],[82,780,370],[85,780,370]],"074033":[[14,780,400],[5,780,400],[2,780,400],[8,780,400],[0,780,400],[10,780,400],[11,780,400],[12,780,400],[7,780,400],[70,780,400],[71,780,400],[79,780,400],[82,780,400]],"074043":[[14,780,500],[5,780,500],[2,780,500],[8,780,500],[0,780,500],[10,780,500],[11,780,500],[12,780,500],[7,780,500],[70,780,500],[71,780,500],[79,780,500],[82,780,500]],"07405":[[13,780,570],[14,780,570],[5,780,570],[2,780,570],[8,780,570],[9,780,570],[0,780,570],[1,780,570],[23,780,570],[24,780,570],[15,780,570],[16,780,570],[10,780,570],[11,780,570],[12,780,570],[7,780,570],[25,780,570],[70,780,570],[71,780,570],[79,780,570],[82,780,570],[85,780,570],[87,780,570],[88,780,570],[89,780,570]],"07407":[[13,780,770],[14,780,770],[5,780,770],[2,780,770],[8,780,770],[9,780,770],[0,780,770],[1,780,770],[23,780,770],[24,780,770],[15,780,770],[16,780,770],[10,780,770],[11,780,770],[12,780,770],[7,780,770],[17,780,770],[25,780,770],[70,780,770],[71,780,770],[73,780,770],[76,780,770],[79,780,770],[82,780,770],[85,780,770],[87,780,770],[88,780,770],[89,780,770]],"07409":[[13,780,970],[14,780,970],[5,780,970],[6,780,970],[2,780,970],[8,780,970],[9,780,970],[0,780,970],[1,780,970],[24,780,970],[15,780,970],[16,780,970],[10,780,970],[11,780,970],[12,780,970],[7,780,970],[17,780,970],[25,780,970],[68,780,970],[69,780,970],[70,780,970],[71,780,970],[72,780,970],[73,780,970],[76,780,970],[79,780,970],[81,780,970],[82,780,970],[84,780,970],[85,780,970],[87,780,970],[88,780,970],[89,780,970]],"07411":[[13,780,1170],[5,780,1170],[6,780,1170],[0,780,1170],[1,780,1170],[24,780,1170],[15,780,1170],[16,780,1170],[10,780,1170],[11,780,1170],[7,780,1170],[17,780,1170],[25,780,1170],[68,780,1170],[69,780,1170],[70,780,1170],[71,780,1170],[72,780,1170],[73,780,1170],[76,780,1170],[79,780,1170],[81,780,1170],[84,780,1170],[89,780,1170]],"07413":[[13,780,1370],[5,780,1370],[6,780,1370],[0,780,1370],[1,780,1370],[15,780,1370],[16,780,1370],[10,780,1370],[11,780,1370],[7,780,1370],[17,780,1370],[68,780,1370],[69,780,1370],[70,780,1370],[71,780,1370],[72,780,1370],[73,780,1370],[76,780,1370],[81,780,1370],[84,780,1370]],"07415":[[5,780,1570],[0,780,1570],[1,780,1570],[15,780,1570],[16,780,1570],[7,780,1570],[17,780,1570],[70,780,1570],[71,780,1570]],"07418":[[5,780,1870],[18,780,1830],[0,780,1870],[19,780,1830],[1,780,1870],[20,780,1830],[7,780,1870],[21,780,1830],[27,780,1870],[28,780,1830],[70,780,1870],[71,780,1870],[93,780,1870],[94,780,1870],[96,780,1830]],"07420":[[5,780,2070],[18,780,2030],[0,780,2070],[19,780,2030],[1,780,2070],[20,780,2030],[7,780,2070],[21,780,2030],[27,780,2070],[28,780,2030],[70,780,2070],[71,780,2070],[93,780,2070],[94,780,2070],[96,780,2030]],"07422":[[7,780,2270],[21,780,2230],[27,780,2270],[28,780,2230],[70,780,2270],[71,780,2270],[93,780,2270],[94,780,2270],[96,780,2230]],"07424":[[21,780,2430],[96,780,2430]],"07805":[[24,820,570],[25,820,570],[89,820,570]],"07807":[[24,820,770],[25,820,770],[89,820,770]],"07809":[[24,820,970],[25,820,970],[89,820,970]],"083018":[[0,870,250],[70,870,250],[71,870,250]],"083023":[[0,870,300],[7,870,300],[70,870,300],[71,870,300]],"08303":[[0,870,370],[7,870,370],[70,870,370],[71,870,370]],"083033":[[0,870,400],[7,870,400],[70,870,400],[71,870,400]],"083043":[[0,870,500],[7,870,500],[70,870,500],[71,870,500]],"08305":[[0,870,570],[24,870,570],[7,870,570],[25,870,570],[70,870,570],[71,870,570],[89,870,570]],"08307":[[24,870,770],[7,870,770],[25,870,770],[70,870,770],[71,870,770],[89,870,770]],"08309":[[24,870,970],[7,870,970],[25,870,970],[70,870,970],[71,870,970],[87,870,970],[88,870,970],[89,870,970]],"08311":[[24,870,1170],[7,870,1170],[25,870,1170],[70,870,1170],[71,870,1170],[89,870,1170]],"08313":[[7,870,1370],[70,870,1370],[71,870,1370]],"08315":[[7,870,1570],[70,870,1570],[71,870,1570]],"08318":[[7,870,1870],[21,870,1830],[70,870,1870],[71,870,1870],[96,870,1830]],"08320":[[7,870,2070],[21,870,2030],[70,870,2070],[71,870,2070],[96,870,2030]],"08322":[[7,870,2270],[21,870,2230],[70,870,2270],[71,870,2270],[96,870,2230]],"08324":[[21,870,2430],[96,870,2430]],"08618":[[26,900,1330]],"08620":[[26,900,1530]],"08718":[[27,915,1870],[28,915,1830]],"08720":[[27,915,2070],[28,915,2030]],"08722":[[27,915,2270],[28,915,2230]],"096093":[[10,1000,1000],[22,1000,1000],[17,1000,1000],[70,1000,1000],[71,1000,1000],[79,1000,1000]],"02122":[[70,250,2270],[71,250,2270]]}};
+const DATA_TW = {"types":[{"cat":"通常","type":"単体引違い窓（フラットタイプ）","variant":"在来（半外付型）","page":76,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓（フラットタイプ）","variant":"テラス","page":76,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓（フラットタイプ）","variant":"テラス単純段差","page":76,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓（フラットタイプ）","variant":"在来（半外付型）","page":77,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓（フラットタイプ）","variant":"テラス","page":77,"series":"TW","note":null},{"cat":"通常","type":"シャッター付引違い窓（フラットタイプ）","variant":"在来（半外付型）","page":93,"series":"TW","note":null},{"cat":"通常","type":"シャッター付引違い窓（フラットタイプ）","variant":"テラス","page":93,"series":"TW","note":null},{"cat":"通常","type":"シャッター付引違い窓（フラットタイプ）","variant":"テラス単純段差","page":93,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓","variant":"在来（半外付型）","page":102,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓","variant":"テラス","page":102,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓","variant":"テラス単純段差","page":102,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓","variant":"在来（半外付型）","page":103,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓","variant":"テラス","page":103,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓","variant":"テラス単純段差","page":103,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓（把手障子）","variant":"在来（半外付型）","page":104,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓（把手障子）","variant":"テラス","page":104,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓（把手障子）","variant":"テラス単純段差","page":104,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓（大壁和室用障子）","variant":"在来（半外付型）","page":105,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓（大壁和室用障子）","variant":"テラス","page":105,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓（大壁和室用障子）","variant":"テラス単純段差","page":105,"series":"TW","note":null},{"cat":"防火","type":"単体引違い窓","variant":"在来（半外付型）","page":106,"series":"TW防火戸","note":null},{"cat":"防火","type":"単体引違い窓","variant":"テラス","page":106,"series":"TW防火戸","note":null},{"cat":"防火","type":"単体引違い窓","variant":"テラス単純段差","page":106,"series":"TW防火戸","note":null},{"cat":"通常","type":"単体引違い窓（把手障子）","variant":"在来（半外付型）","page":107,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓（把手障子）","variant":"テラス","page":107,"series":"TW","note":null},{"cat":"通常","type":"単体引違い窓（把手障子）","variant":"テラス単純段差","page":107,"series":"TW","note":null},{"cat":"防火","type":"単体引違い窓（大壁和室用障子）","variant":"在来（半外付型）","page":108,"series":"TW防火戸","note":null},{"cat":"防火","type":"単体引違い窓（大壁和室用障子）","variant":"テラス","page":108,"series":"TW防火戸","note":null},{"cat":"防火","type":"単体引違い窓（大壁和室用障子）","variant":"テラス単純段差","page":108,"series":"TW防火戸","note":null},{"cat":"通常","type":"シャッター付引違い窓","variant":"在来（半外付型）","page":136,"series":"TW","note":null},{"cat":"通常","type":"シャッター付引違い窓","variant":"テラス","page":136,"series":"TW","note":null},{"cat":"通常","type":"シャッター付引違い窓","variant":"テラス単純段差","page":136,"series":"TW","note":null},{"cat":"通常","type":"シャッター付引違い窓（フラットタイプ）","variant":"テラス","page":137,"series":"TW","note":null},{"cat":"通常","type":"シャッター付引違い窓（フラットタイプ）","variant":"テラス単純段差","page":137,"series":"TW","note":null},{"cat":"通常","type":"シャッター付引違い窓（把手障子）","variant":"在来（半外付型）","page":138,"series":"TW","note":null},{"cat":"通常","type":"シャッター付引違い窓（把手障子）","variant":"テラス","page":138,"series":"TW","note":null},{"cat":"通常","type":"シャッター付引違い窓（把手障子）","variant":"テラス単純段差","page":138,"series":"TW","note":null},{"cat":"通常","type":"シャッター付引違い窓（フラットタイプ・大壁和室用障子）","variant":"在来（半外付型）","page":139,"series":"TW","note":null},{"cat":"通常","type":"シャッター付引違い窓（フラットタイプ・大壁和室用障子）","variant":"テラス","page":139,"series":"TW","note":null},{"cat":"通常","type":"シャッター付引違い窓（フラットタイプ・大壁和室用障子）","variant":"テラス単純段差","page":139,"series":"TW","note":null},{"cat":"防火","type":"シャッター付引違い窓","variant":"在来（半外付型）","page":140,"series":"TW防火戸","note":null},{"cat":"防火","type":"シャッター付引違い窓","variant":"テラス","page":140,"series":"TW防火戸","note":null},{"cat":"防火","type":"シャッター付引違い窓","variant":"テラス単純段差","page":140,"series":"TW防火戸","note":null},{"cat":"通常","type":"シャッター付引違い窓","variant":"在来（半外付型）","page":141,"series":"TW","note":null},{"cat":"通常","type":"シャッター付引違い窓","variant":"テラス","page":141,"series":"TW","note":null},{"cat":"防火","type":"シャッター付引違い窓（把手障子）","variant":"在来（半外付型）","page":142,"series":"TW防火戸","note":null},{"cat":"防火","type":"シャッター付引違い窓（把手障子）","variant":"テラス","page":142,"series":"TW防火戸","note":null},{"cat":"防火","type":"シャッター付引違い窓（把手障子）","variant":"テラス単純段差","page":142,"series":"TW防火戸","note":null},{"cat":"通常","type":"シャッター付引違い窓（大壁和室用障子）","variant":"在来（半外付型）","page":143,"series":"TW","note":null},{"cat":"通常","type":"シャッター付引違い窓（大壁和室用障子）","variant":"テラス","page":143,"series":"TW","note":null},{"cat":"通常","type":"シャッター付引違い窓（大壁和室用障子）","variant":"テラス単純段差","page":143,"series":"TW","note":null},{"cat":"通常","type":"面格子付引違い窓","variant":"在来（半外付型）","page":166,"series":"TW","note":null},{"cat":"通常","type":"面格子付引違い窓（高強度縦格子）","variant":"在来","page":167,"series":"TW","note":null},{"cat":"防火","type":"面格子付引違い窓","variant":"在来（半外付型）","page":168,"series":"TW防火戸","note":null},{"cat":"通常","type":"縦すべり出し窓（グレモン）","variant":"在来（半外付型）","page":176,"series":"TW","note":null},{"cat":"防火","type":"縦すべり出し窓（グレモン）","variant":"在来（半外付型）","page":177,"series":"TW防火戸","note":null},{"cat":"通常","type":"縦すべり出し窓（オペレーター）","variant":"在来（半外付型）","page":184,"series":"TW","note":null},{"cat":"防火","type":"縦すべり出し窓（オペレーター）","variant":"在来（半外付型）","page":185,"series":"TW防火戸","note":null},{"cat":"通常","type":"横すべり出し窓（グレモン）","variant":"在来（半外付型）","page":190,"series":"TW","note":null},{"cat":"通常","type":"横すべり出し窓（グレモン）","variant":"在来（半外付型）","page":191,"series":"TW","note":null},{"cat":"防火","type":"横すべり出し窓（グレモン）","variant":"在来（半外付型）","page":192,"series":"TW防火戸","note":null},{"cat":"通常","type":"横すべり出し窓（オペレーター）","variant":"在来（半外付型）","page":198,"series":"TW","note":null},{"cat":"防火","type":"横すべり出し窓（オペレーター）","variant":"在来（半外付型）","page":199,"series":"TW防火戸","note":null},{"cat":"通常","type":"高所用横すべり出し窓","variant":"在来（半外付型）","page":206,"series":"TW","note":null},{"cat":"通常","type":"上げ下げ窓","variant":"在来（半外付型）","page":212,"series":"TW","note":null},{"cat":"通常","type":"面格子付上げ下げ窓","variant":"在来（半外付型）","page":218,"series":"TW","note":null},{"cat":"通常","type":"FIX窓（内押縁タイプ）","variant":"在来（半外付型）","page":224,"series":"TW","note":null},{"cat":"通常","type":"FIX窓（内押縁タイプ）","variant":null,"page":225,"series":"TW","note":null},{"cat":"防火","type":"FIX窓（内押縁タイプ）","variant":"在来（半外付型）","page":226,"series":"TW防火戸","note":null},{"cat":"防火","type":"FIX窓（内押縁タイプ）","variant":null,"page":227,"series":"TW防火戸","note":null},{"cat":"防火","type":"開き窓テラス（フリクションアームタイプ）","variant":"在来（半外付型）","page":234,"series":"TW防火戸","note":null},{"cat":"防火","type":"開き窓テラス（フリクションアームタイプ）","variant":"テラス","page":234,"series":"TW防火戸","note":null},{"cat":"防火","type":"開き窓テラス（フリクションアームタイプ）","variant":"テラス単純段差","page":234,"series":"TW防火戸","note":null},{"cat":"防火","type":"開き窓テラス（ドアクローザタイプ）","variant":"在来（半外付型）","page":240,"series":"TW防火戸","note":null},{"cat":"防火","type":"開き窓テラス（ドアクローザタイプ）","variant":"テラス","page":240,"series":"TW防火戸","note":null},{"cat":"防火","type":"開き窓テラス（ドアクローザタイプ）","variant":"テラス単純段差","page":240,"series":"TW防火戸","note":null},{"cat":"通常","type":"装飾引違い窓HK（フラットタイプ）","variant":"テラス","page":246,"series":"TW","note":null},{"cat":"通常","type":"装飾引違い窓HK","variant":"在来（半外付型）","page":256,"series":"TW","note":null},{"cat":"通常","type":"装飾引違い窓HK","variant":"テラス","page":256,"series":"TW","note":null},{"cat":"通常","type":"装飾引違い窓HKK","variant":"在来（半外付型）","page":257,"series":"TW","note":null},{"cat":"通常","type":"装飾引違い窓HKK","variant":"テラス","page":257,"series":"TW","note":null},{"cat":"通常","type":"テラスドア","variant":"在来（半外付型）","page":267,"series":"TW","note":null},{"cat":"通常","type":"テラスドア","variant":"テラス","page":267,"series":"TW","note":null},{"cat":"通常","type":"テラスドア","variant":"テラス単純段差","page":267,"series":"TW","note":null},{"cat":"通常","type":"採風勝手口ドアFS（フラットスライド）","variant":"在来（半外付型）","page":274,"series":"TW","note":null},{"cat":"通常","type":"採風勝手口ドアFS（フラットスライド）","variant":"テラス","page":274,"series":"TW","note":null},{"cat":"通常","type":"採風勝手口ドアFS（フラットスライド）","variant":"テラス単純段差","page":274,"series":"TW","note":null},{"cat":"通常","type":"勝手口ドア","variant":"在来（半外付型）","page":281,"series":"TW","note":null},{"cat":"通常","type":"勝手口ドア","variant":"テラス","page":281,"series":"TW","note":null},{"cat":"通常","type":"勝手口ドア","variant":"テラス単純段差","page":281,"series":"TW","note":null},{"cat":"通常","series":"TW","type":"FIX窓（テラスタイプ）","variant":null,"note":null,"page":223},{"cat":"防火","series":"TW防火戸","type":"FIX窓（テラスタイプ）","variant":null,"note":null,"page":225}],"codes":{"11405":[[8,1185,570],[20,1185,570],[51,1185,570],[52,1185,570],[53,1185,570],[77,1185,570]],"11407":[[8,1185,770],[20,1185,770],[51,1185,770],[52,1185,770],[53,1185,770],[77,1185,770]],"11409":[[8,1185,970],[20,1185,970],[29,1185,970],[40,1185,970],[51,1185,970],[52,1185,970],[53,1185,970],[54,1185,970],[55,1185,970],[77,1185,970]],"11411":[[8,1185,1170],[20,1185,1170],[29,1185,1170],[40,1185,1170],[51,1185,1170],[52,1185,1170],[53,1185,1170],[54,1185,1170],[55,1185,1170],[77,1185,1170]],"11413":[[8,1185,1370],[20,1185,1370],[29,1185,1370],[40,1185,1370],[51,1185,1370],[53,1185,1370],[54,1185,1370],[55,1185,1370],[77,1185,1370]],"11903":[[8,1235,370],[20,1235,370],[59,1235,370],[66,1235,370],[68,1235,370]],"11905":[[8,1235,570],[20,1235,570],[51,1235,570],[52,1235,570],[53,1235,570],[77,1235,570],[66,1235,570],[68,1235,570]],"11907":[[8,1235,770],[20,1235,770],[51,1235,770],[52,1235,770],[53,1235,770],[77,1235,770],[66,1235,770]],"11909":[[8,1235,970],[20,1235,970],[29,1235,970],[40,1235,970],[51,1235,970],[52,1235,970],[53,1235,970],[54,1235,970],[55,1235,970],[59,1235,970],[77,1235,970],[66,1235,970]],"11911":[[8,1235,1170],[20,1235,1170],[29,1235,1170],[40,1235,1170],[51,1235,1170],[52,1235,1170],[53,1235,1170],[54,1235,1170],[55,1235,1170],[59,1235,1170],[77,1235,1170],[66,1235,1170]],"11913":[[8,1235,1370],[20,1235,1370],[29,1235,1370],[40,1235,1370],[51,1235,1370],[53,1235,1370],[54,1235,1370],[55,1235,1370],[77,1235,1370],[66,1235,1370]],"11915":[[66,1235,1570]],"11918":[[0,1235,1830],[5,1235,1830],[8,1235,1830],[14,1235,1830],[20,1235,1830],[23,1235,1830],[29,1235,1830],[34,1235,1830],[40,1235,1830],[45,1235,1830],[90,1235,1830]],"11920":[[0,1235,2030],[5,1235,2030],[8,1235,2030],[14,1235,2030],[21,1235,2030],[24,1235,2030],[29,1235,2030],[34,1235,2030],[40,1235,2030],[45,1235,2030],[90,1235,2030]],"11922":[[90,1235,2230]],"11924":[[90,1235,2430]],"15005":[[8,1540,570],[20,1540,570],[51,1540,570],[52,1540,570],[53,1540,570]],"15007":[[8,1540,770],[20,1540,770],[51,1540,770],[52,1540,770],[53,1540,770]],"15009":[[8,1540,970],[20,1540,970],[29,1540,970],[40,1540,970],[51,1540,970],[52,1540,970],[53,1540,970]],"15011":[[8,1540,1170],[20,1540,1170],[29,1540,1170],[40,1540,1170],[51,1540,1170],[52,1540,1170],[53,1540,1170]],"15013":[[8,1540,1370],[20,1540,1370],[29,1540,1370],[40,1540,1370],[51,1540,1370],[53,1540,1370]],"15015":[[8,1540,1570],[29,1540,1570],[40,1540,1570]],"15018":[[0,1540,1830],[5,1540,1830],[8,1540,1830],[14,1540,1830],[17,1540,1830],[20,1540,1830],[23,1540,1830],[26,1540,1830],[29,1540,1830],[34,1540,1830],[37,1540,1830],[40,1540,1830],[45,1540,1830],[48,1540,1830]],"15020":[[0,1540,2030],[5,1540,2030],[8,1540,2030],[14,1540,2030],[18,1540,2030],[21,1540,2030],[24,1540,2030],[27,1540,2030],[29,1540,2030],[34,1540,2030],[38,1540,2030],[40,1540,2030],[45,1540,2030],[49,1540,2030]],"15022":[[1,1540,2230],[6,1540,2230],[9,1540,2230],[15,1540,2230],[21,1540,2230],[24,1540,2230],[30,1540,2230],[35,1540,2230],[41,1540,2230],[46,1540,2230]],"15024":[[1,1540,2430],[6,1540,2430],[9,1540,2430],[15,1540,2430],[30,1540,2430],[35,1540,2430],[41,1540,2430],[46,1540,2430]],"15027":[[1,1540,2730],[9,1540,2730]],"16003":[[59,1640,370]],"16005":[[8,1640,570],[20,1640,570],[51,1640,570],[52,1640,570],[53,1640,570],[77,1640,570],[79,1640,570],[66,1640,570],[68,1640,570]],"16007":[[8,1640,770],[20,1640,770],[51,1640,770],[52,1640,770],[53,1640,770],[77,1640,770],[79,1640,770]],"16009":[[8,1640,970],[20,1640,970],[29,1640,970],[40,1640,970],[51,1640,970],[52,1640,970],[53,1640,970],[54,1640,970],[55,1640,970],[77,1640,970],[79,1640,970]],"16011":[[8,1640,1170],[20,1640,1170],[29,1640,1170],[40,1640,1170],[51,1640,1170],[52,1640,1170],[53,1640,1170],[54,1640,1170],[55,1640,1170],[77,1640,1170],[79,1640,1170]],"16013":[[8,1640,1370],[20,1640,1370],[29,1640,1370],[40,1640,1370],[51,1640,1370],[53,1640,1370],[54,1640,1370],[55,1640,1370],[77,1640,1370],[79,1640,1370]],"16015":[[8,1640,1570],[29,1640,1570],[40,1640,1570]],"16018":[[0,1640,1830],[5,1640,1830],[8,1640,1830],[14,1640,1830],[17,1640,1830],[20,1640,1830],[23,1640,1830],[26,1640,1830],[29,1640,1830],[34,1640,1830],[37,1640,1830],[40,1640,1830],[45,1640,1830],[48,1640,1830]],"16020":[[0,1640,2030],[5,1640,2030],[8,1640,2030],[14,1640,2030],[18,1640,2030],[21,1640,2030],[24,1640,2030],[27,1640,2030],[29,1640,2030],[34,1640,2030],[38,1640,2030],[40,1640,2030],[45,1640,2030],[49,1640,2030]],"16022":[[1,1640,2230],[6,1640,2230],[9,1640,2230],[15,1640,2230],[21,1640,2230],[24,1640,2230],[30,1640,2230],[35,1640,2230],[41,1640,2230],[46,1640,2230]],"16024":[[1,1640,2430],[6,1640,2430],[9,1640,2430],[15,1640,2430],[30,1640,2430],[35,1640,2430],[41,1640,2430],[46,1640,2430]],"16027":[[1,1640,2730],[9,1640,2730]],"16503":[[8,1690,370],[20,1690,370],[59,1690,370]],"16505":[[8,1690,570],[20,1690,570],[51,1690,570],[52,1690,570],[53,1690,570],[77,1690,570],[79,1690,570],[66,1690,570],[68,1690,570]],"16507":[[8,1690,770],[20,1690,770],[29,1690,770],[40,1690,770],[51,1690,770],[52,1690,770],[53,1690,770],[77,1690,770],[79,1690,770],[66,1690,770]],"16509":[[8,1690,970],[20,1690,970],[29,1690,970],[40,1690,970],[51,1690,970],[52,1690,970],[53,1690,970],[54,1690,970],[55,1690,970],[77,1690,970],[79,1690,970],[66,1690,970]],"16511":[[8,1690,1170],[20,1690,1170],[29,1690,1170],[40,1690,1170],[51,1690,1170],[52,1690,1170],[53,1690,1170],[54,1690,1170],[55,1690,1170],[77,1690,1170],[79,1690,1170],[66,1690,1170]],"16513":[[8,1690,1370],[20,1690,1370],[29,1690,1370],[40,1690,1370],[51,1690,1370],[53,1690,1370],[54,1690,1370],[55,1690,1370],[77,1690,1370],[79,1690,1370],[66,1690,1370]],"16515":[[8,1690,1570],[29,1690,1570],[40,1690,1570],[77,1690,1570],[66,1690,1570]],"16518":[[0,1690,1830],[5,1690,1830],[8,1690,1830],[14,1690,1830],[17,1690,1830],[20,1690,1830],[23,1690,1830],[26,1690,1830],[29,1690,1830],[34,1690,1830],[37,1690,1830],[40,1690,1830],[45,1690,1830],[48,1690,1830],[90,1690,1830]],"16520":[[0,1690,2030],[5,1690,2030],[8,1690,2030],[14,1690,2030],[18,1690,2030],[21,1690,2030],[24,1690,2030],[27,1690,2030],[29,1690,2030],[34,1690,2030],[38,1690,2030],[40,1690,2030],[45,1690,2030],[49,1690,2030],[90,1690,2030]],"16522":[[1,1690,2230],[6,1690,2230],[9,1690,2230],[15,1690,2230],[21,1690,2230],[24,1690,2230],[30,1690,2230],[35,1690,2230],[41,1690,2230],[46,1690,2230],[90,1690,2230]],"16524":[[1,1690,2430],[6,1690,2430],[9,1690,2430],[15,1690,2430],[30,1690,2430],[35,1690,2430],[41,1690,2430],[46,1690,2430],[90,1690,2430]],"16527":[[1,1690,2730],[9,1690,2730]],"25609":[[79,2600,970]],"25611":[[79,2600,1170]],"25613":[[79,2600,1370]],"25618":[[76,2600,1830],[77,2600,1830],[79,2600,1830]],"25620":[[76,2600,2030],[77,2600,2030],[80,2600,2030]],"25622":[[76,2600,2230],[78,2600,2230],[80,2600,2230]],"25624":[[78,2600,2430]],"34718":[[3,3510,1830],[11,3510,1830],[32,3510,2045],[76,3510,1830],[79,3510,1830]],"34720":[[3,3510,2030],[11,3510,2030],[32,3510,2245],[76,3510,2030],[80,3510,2030]],"34722":[[4,3510,2230],[12,3510,2230],[32,3510,2445]],"34724":[[4,3510,2430],[12,3510,2430],[33,3510,1860]],"114018":[[66,1185,250],[68,1185,250]],"114023":[[66,1185,300],[68,1185,300]],"114028":[[66,1185,350],[68,1185,350]],"119018":[[66,1235,250],[68,1235,250]],"119023":[[59,1235,300],[66,1235,300],[68,1235,300]],"119028":[[66,1235,350],[68,1235,350]],"119116":[[59,1235,1235],[61,1235,1235],[66,1235,1235]],"146143":[[59,1500,1500]],"160018":[[66,1640,250],[68,1640,250]],"160023":[[59,1640,300],[66,1640,300],[68,1640,300]],"160028":[[66,1640,350],[68,1640,350]],"165018":[[66,1690,250],[68,1690,250]],"165023":[[59,1690,300],[66,1690,300],[68,1690,300]],"165028":[[66,1690,350],[68,1690,350]],"251092":[[11,2550,970]],"251112":[[11,2550,1170],[29,2550,1170],[40,2550,1170]],"251132":[[11,2550,1370],[29,2550,1370],[40,2550,1370]],"251182":[[0,2550,1830],[5,2550,1830],[11,2550,1830],[14,2550,1830],[29,2550,1830],[34,2550,1830],[40,2550,1830],[45,2550,1830]],"251184":[[0,2550,1830],[5,2550,1830],[11,2550,1830],[32,2550,2045],[43,2550,1830]],"251202":[[0,2550,2030],[5,2550,2030],[11,2550,2030],[14,2550,2030],[29,2550,2030],[34,2550,2030],[40,2550,2030],[45,2550,2030]],"251204":[[0,2550,2030],[5,2550,2030],[11,2550,2030],[32,2550,2245],[43,2550,2030]],"251222":[[1,2550,2230],[6,2550,2230],[12,2550,2230],[15,2550,2230],[30,2550,2230],[35,2550,2230],[41,2550,2230],[46,2550,2230]],"251224":[[1,2550,2230],[6,2550,2230],[12,2550,2230],[32,2550,2445],[44,2550,2230]],"251242":[[1,2550,2430],[6,2550,2430],[12,2550,2430],[15,2550,2430],[30,2550,2430],[35,2550,2430],[41,2550,2430],[46,2550,2430]],"251244":[[1,2550,2430],[6,2550,2430],[12,2550,2430],[33,2550,1860],[44,2550,2430]],"251274":[[1,2550,2730],[12,2550,2730]],"256092":[[11,2600,970]],"256112":[[11,2600,1170],[32,2600,2230],[43,2600,1170]],"256132":[[11,2600,1370],[32,2600,2430],[43,2600,1370]],"256182":[[3,2600,1830],[5,2600,1830],[11,2600,1830],[14,2600,1830],[32,2600,2045],[34,2600,1830],[43,2600,1830],[45,2600,1830]],"256184":[[3,2600,1830],[5,2600,1830],[11,2600,1830],[32,2600,2045],[43,2600,1830]],"256202":[[3,2600,2030],[5,2600,2030],[11,2600,2030],[14,2600,2030],[32,2600,2245],[34,2600,2030],[43,2600,2030],[45,2600,2030]],"256204":[[3,2600,2030],[5,2600,2030],[11,2600,2030],[32,2600,2245],[43,2600,2030]],"256222":[[4,2600,2230],[6,2600,2230],[12,2600,2230],[15,2600,2230],[32,2600,2445],[35,2600,2230],[44,2600,2230],[46,2600,2230]],"256224":[[4,2600,2230],[6,2600,2230],[12,2600,2230],[32,2600,2445],[44,2600,2230]],"256242":[[4,2600,2430],[6,2600,2430],[12,2600,2430],[15,2600,2430],[33,2600,1860],[35,2600,2430],[44,2600,2430],[46,2600,2430]],"256244":[[4,2600,2430],[6,2600,2430],[12,2600,2430],[33,2600,1860],[44,2600,2430]],"256274":[[4,2600,2730],[12,2600,2730]],"16018A":[[1,1640,1845],[6,1640,1845],[9,1640,1845],[15,1640,1845],[18,1640,1845],[21,1640,1845],[24,1640,1845],[27,1640,1845],[30,1640,1845],[35,1640,1845],[38,1640,1845],[41,1640,1845],[46,1640,1845],[49,1640,1845]],"243182A":[[1,2470,1845],[6,2470,1845],[12,2470,1845],[15,2470,1845],[30,2470,1845],[35,2470,1845],[41,2470,1845],[46,2470,1845]],"243184A":[[1,2470,1845],[6,2470,1845],[12,2470,1845],[30,2470,1845],[41,2470,1845]],"16020A":[[1,1640,2045],[6,1640,2045],[9,1640,2045],[15,1640,2045],[18,1640,2045],[21,1640,2045],[24,1640,2045],[27,1640,2045],[30,1640,2045],[35,1640,2045],[38,1640,2045],[41,1640,2045],[46,1640,2045],[49,1640,2045]],"243202A":[[1,2470,2045],[6,2470,2045],[12,2470,2045],[15,2470,2045],[30,2470,2045],[35,2470,2045],[41,2470,2045],[46,2470,2045]],"243204A":[[1,2470,2045],[6,2470,2045],[12,2470,2045],[30,2470,2045],[41,2470,2045]],"16024A":[[1,1640,2445],[6,1640,2445],[9,1640,2445],[15,1640,2445],[30,1640,2445],[35,1640,2445],[41,1640,2445],[46,1640,2445]],"243242A":[[1,2470,2445],[6,2470,2445],[12,2470,2445],[15,2470,2445],[30,2470,2445],[35,2470,2445],[41,2470,2445],[46,2470,2445]],"243244A":[[1,2470,2445],[6,2470,2445],[12,2470,2445],[30,2470,2445],[41,2470,2445]],"16018B":[[2,1640,1860],[7,1640,1860],[10,1640,1860],[16,1640,1860],[19,1640,1860],[22,1640,1860],[25,1640,1860],[28,1640,1860],[31,1640,1860],[36,1640,1860],[39,1640,1860],[42,1640,1860],[47,1640,1860],[50,1640,1860]],"243182B":[[2,2470,1860],[7,2470,1860],[13,2470,1860],[16,2470,1860],[31,2470,1860],[36,2470,1860],[42,2470,1860],[47,2470,1860]],"243184B":[[2,2470,1860],[7,2470,1860],[13,2470,1860],[31,2470,1860],[42,2470,1860]],"16022B":[[2,1640,2260],[7,1640,2260],[10,1640,2260],[16,1640,2260],[22,1640,2260],[25,1640,2260],[31,1640,2260],[36,1640,2260],[42,1640,2260],[47,1640,2260]],"243222B":[[2,2470,2260],[7,2470,2260],[13,2470,2260],[16,2470,2260],[31,2470,2260],[36,2470,2260],[42,2470,2260],[47,2470,2260]],"243224B":[[2,2470,2260],[7,2470,2260],[13,2470,2260],[31,2470,2260],[42,2470,2260]],"16024B":[[2,1640,2460],[7,1640,2460],[10,1640,2460],[16,1640,2460],[31,1640,2460],[36,1640,2460],[42,1640,2460],[47,1640,2460]],"243242B":[[2,2470,2460],[7,2470,2460],[13,2470,2460],[16,2470,2460],[31,2470,2460],[36,2470,2460],[42,2470,2460],[47,2470,2460]],"243244B":[[2,2470,2460],[7,2470,2460],[13,2470,2460],[31,2470,2460],[42,2470,2460]],"16027B":[[2,1640,2760],[10,1640,2760]],"16020B":[[2,1640,2060],[7,1640,2060],[10,1640,2060],[16,1640,2060],[19,1640,2060],[22,1640,2060],[25,1640,2060],[28,1640,2060],[31,1640,2060],[36,1640,2060],[39,1640,2060],[42,1640,2060],[47,1640,2060],[50,1640,2060]],"243202B":[[2,2470,2060],[7,2470,2060],[13,2470,2060],[16,2470,2060],[31,2470,2060],[36,2470,2060],[42,2470,2060],[47,2470,2060]],"243204B":[[2,2470,2060],[7,2470,2060],[13,2470,2060],[31,2470,2060],[42,2470,2060]],"16027A":[[1,1640,2745],[9,1640,2745]],"16022A":[[1,1640,2245],[6,1640,2245],[9,1640,2245],[15,1640,2245],[21,1640,2245],[24,1640,2245],[30,1640,2245],[35,1640,2245],[41,1640,2245],[46,1640,2245]],"243222A":[[1,2470,2245],[6,2470,2245],[12,2470,2245],[15,2470,2245],[30,2470,2245],[35,2470,2245],[41,2470,2245],[46,2470,2245]],"243224A":[[1,2470,2245],[6,2470,2245],[12,2470,2245],[30,2470,2245],[41,2470,2245]],"06003":[[8,640,370],[20,640,370],[51,640,370],[53,640,370],[58,640,370],[60,640,370],[61,640,370],[62,640,370],[66,640,370],[68,640,370]],"06903":[[8,730,370],[20,730,370],[51,730,370],[52,730,370],[53,730,370],[58,730,370],[60,730,370],[61,730,370],[62,730,370],[63,730,370]],"07403":[[8,780,370],[20,780,370],[51,780,370],[52,780,370],[53,780,370],[58,780,370],[60,780,370],[61,780,370],[62,780,370],[63,780,370],[66,780,370],[68,780,370]],"06007":[[8,640,770],[20,640,770],[51,640,770],[53,640,770],[54,640,770],[55,640,770],[56,640,770],[57,640,770],[58,640,770],[60,640,770],[61,640,770],[62,640,770],[63,640,770],[64,640,770],[65,640,770],[66,640,770],[68,640,770]],"06907":[[8,730,770],[20,730,770],[51,730,770],[52,730,770],[53,730,770],[58,730,770],[60,730,770],[61,730,770],[62,730,770],[63,730,770],[64,730,770],[65,730,770],[66,730,770],[68,730,770]],"07407":[[8,780,770],[20,780,770],[51,780,770],[52,780,770],[53,780,770],[58,780,770],[60,780,770],[61,780,770],[62,780,770],[63,780,770],[64,780,770],[65,780,770],[66,780,770],[68,780,770]],"06005":[[8,640,570],[20,640,570],[51,640,570],[53,640,570],[58,640,570],[60,640,570],[61,640,570],[62,640,570],[66,640,570],[68,640,570]],"06905":[[8,730,570],[20,730,570],[51,730,570],[52,730,570],[53,730,570],[58,730,570],[60,730,570],[61,730,570],[62,730,570],[63,730,570],[66,730,570],[68,730,570]],"07405":[[8,780,570],[20,780,570],[51,780,570],[52,780,570],[53,780,570],[58,780,570],[60,780,570],[61,780,570],[62,780,570],[63,780,570],[66,780,570],[68,780,570]],"06009":[[8,640,970],[20,640,970],[51,640,970],[53,640,970],[54,640,970],[55,640,970],[56,640,970],[57,640,970],[58,640,970],[60,640,970],[61,640,970],[62,640,970],[63,640,970],[64,640,970],[65,640,970],[66,640,970],[68,640,970]],"06909":[[8,730,970],[20,730,970],[51,730,970],[52,730,970],[53,730,970],[58,730,970],[60,730,970],[61,730,970],[62,730,970],[63,730,970],[64,730,970],[65,730,970],[66,730,970],[68,730,970]],"07409":[[8,780,970],[20,780,970],[51,780,970],[52,780,970],[53,780,970],[58,780,970],[60,780,970],[61,780,970],[62,780,970],[63,780,970],[64,780,970],[65,780,970],[66,780,970],[68,780,970]],"07411":[[8,780,1170],[20,780,1170],[51,780,1170],[52,780,1170],[53,780,1170],[64,780,1170],[65,780,1170],[66,780,1170],[68,780,1170]],"02607":[[54,300,770],[55,300,770],[56,300,770],[57,300,770],[64,300,770],[65,300,770]],"03607":[[54,405,770],[55,405,770],[56,405,770],[57,405,770],[58,405,770],[60,405,770],[61,405,770],[62,405,770],[63,405,770],[64,405,770],[65,405,770],[66,405,770],[68,405,770]],"02109":[[54,250,970],[55,250,970],[56,250,970],[57,250,970],[66,250,970],[68,250,970]],"02309":[[54,275,970],[55,275,970],[56,275,970],[57,275,970],[66,275,970],[68,275,970]],"02609":[[54,300,970],[55,300,970],[56,300,970],[57,300,970],[64,300,970],[65,300,970],[66,300,970],[68,300,970]],"03109":[[54,350,970],[55,350,970],[56,350,970],[57,350,970],[66,350,970],[68,350,970]],"03609":[[54,405,970],[55,405,970],[56,405,970],[57,405,970],[63,405,970],[64,405,970],[65,405,970],[66,405,970],[68,405,970]],"02113":[[54,250,1370],[55,250,1370],[56,250,1370],[57,250,1370],[66,250,1370],[68,250,1370]],"02313":[[54,275,1370],[55,275,1370],[56,275,1370],[57,275,1370],[66,275,1370],[68,275,1370]],"02613":[[54,300,1370],[55,300,1370],[56,300,1370],[57,300,1370],[64,300,1370],[65,300,1370],[66,300,1370],[68,300,1370]],"03113":[[54,350,1370],[55,350,1370],[56,350,1370],[57,350,1370],[66,350,1370],[68,350,1370]],"03613":[[54,405,1370],[55,405,1370],[56,405,1370],[57,405,1370],[63,405,1370],[64,405,1370],[65,405,1370],[66,405,1370],[68,405,1370]],"06013":[[54,640,1370],[55,640,1370],[56,640,1370],[57,640,1370],[63,640,1370],[64,640,1370],[65,640,1370],[66,640,1370],[68,640,1370]],"02111":[[54,250,1170],[55,250,1170],[56,250,1170],[57,250,1170],[66,250,1170],[68,250,1170]],"02311":[[54,275,1170],[55,275,1170],[56,275,1170],[57,275,1170],[66,275,1170],[68,275,1170]],"02611":[[54,300,1170],[55,300,1170],[56,300,1170],[57,300,1170],[64,300,1170],[65,300,1170],[66,300,1170],[68,300,1170]],"03111":[[54,350,1170],[55,350,1170],[56,350,1170],[57,350,1170],[66,350,1170],[68,350,1170]],"03611":[[54,405,1170],[55,405,1170],[56,405,1170],[57,405,1170],[63,405,1170],[64,405,1170],[65,405,1170],[66,405,1170],[68,405,1170]],"06011":[[54,640,1170],[55,640,1170],[56,640,1170],[57,640,1170],[63,640,1170],[64,640,1170],[65,640,1170],[66,640,1170],[68,640,1170]],"02115":[[54,250,1570],[55,250,1570],[56,250,1570],[57,250,1570],[66,250,1570],[68,250,1570]],"02615":[[54,300,1570],[55,300,1570],[56,300,1570],[57,300,1570],[66,300,1570],[68,300,1570]],"03115":[[54,350,1570],[55,350,1570],[56,350,1570],[57,350,1570],[66,350,1570],[68,350,1570]],"02118":[[54,250,1870],[55,250,1870]],"02618":[[54,300,1870],[55,300,1870]],"03118":[[54,350,1870],[55,350,1870]],"02120":[[54,250,2070],[55,250,2070]],"02620":[[54,300,2070],[55,300,2070]],"03120":[[54,350,2070],[55,350,2070]],"02122":[[54,250,2270],[55,250,2270]],"02622":[[54,300,2270]],"03122":[[54,350,2270],[55,350,2270]],"026023":[[58,300,300],[60,300,300],[61,300,300],[62,300,300],[66,300,300],[68,300,300]],"060023":[[58,640,300],[60,640,300]],"069023":[[58,730,300],[60,730,300],[63,730,300],[66,730,300],[68,730,300]],"074023":[[58,780,300],[60,780,300],[63,780,300],[66,780,300],[68,780,300]],"03603":[[58,405,370],[60,405,370],[61,405,370],[62,405,370],[66,405,370],[68,405,370]],"03605":[[58,405,570],[60,405,570],[61,405,570],[62,405,570],[66,405,570],[68,405,570]],"036033":[[58,405,405],[60,405,405],[61,405,405],[62,405,405],[66,405,405],[68,405,405]],"031028":[[58,350,350],[60,350,350],[61,350,350],[62,350,350],[66,350,350],[68,350,350]],"041038":[[58,450,450],[60,450,450],[61,450,450],[62,450,450],[66,450,450],[68,450,450]],"060057":[[58,640,640],[60,640,640],[61,640,640],[62,640,640],[66,640,640],[68,640,640]],"096093":[[59,1000,1000],[61,1000,1000],[66,1000,1000]],"069028":[[63,730,350],[66,730,350],[68,730,350]],"074028":[[63,780,350],[66,780,350],[68,780,350]],"06911":[[64,730,1170],[65,730,1170],[66,730,1170],[68,730,1170]],"06913":[[64,730,1370],[65,730,1370],[66,730,1370],[68,730,1370]],"07413":[[64,780,1370],[65,780,1370],[66,780,1370],[68,780,1370]],"03615":[[64,405,1570],[66,405,1570],[68,405,1570]],"06015":[[64,640,1570],[66,640,1570],[68,640,1570]],"06915":[[64,730,1570],[66,730,1570],[68,730,1570]],"07415":[[64,780,1570],[66,780,1570],[68,780,1570]],"021018":[[66,250,250],[68,250,250]],"069018":[[66,730,250],[68,730,250]],"074018":[[66,780,250],[68,780,250]],"02118M":[[66,250,1870],[68,250,1870]],"02618M":[[66,300,1870],[68,300,1870]],"03118M":[[66,350,1870],[68,350,1870]],"02120M":[[66,250,2070],[68,250,2070]],"02620M":[[66,300,2070],[68,300,2070]],"03120M":[[66,350,2070],[68,350,2070]],"02122M":[[66,250,2270]],"02622M":[[66,300,2270]],"03122M":[[66,350,2270]],"06024B":[[83,640,2460],[90,640,2460]],"06924B":[[83,730,2460],[90,730,2460]],"06018B":[[72,640,1860],[75,640,1860],[83,640,1860],[86,640,1860],[89,640,1860],[90,640,1860],[91,640,1860]],"06918B":[[72,730,1860],[75,730,1860],[83,730,1860],[86,730,1860],[89,730,1860],[90,730,1860],[91,730,1860]],"06018":[[70,640,1830],[73,640,1830],[81,640,1830],[84,640,1830],[87,640,1830],[90,640,1830],[91,640,1830]],"06918":[[70,730,1830],[73,730,1830],[81,730,1830],[84,730,1830],[87,730,1830],[90,730,1830],[91,730,1830]],"07418":[[70,780,1830],[73,780,1830],[81,780,1830],[84,780,1830],[87,780,1830],[90,780,1830],[91,780,1830]],"06020":[[71,640,2030],[74,640,2030],[81,640,2030],[85,640,2030],[88,640,2030],[90,640,2030],[91,640,2030]],"06920":[[71,730,2030],[74,730,2030],[81,730,2030],[85,730,2030],[88,730,2030],[90,730,2030],[91,730,2030]],"07420":[[71,780,2030],[74,780,2030],[81,780,2030],[85,780,2030],[88,780,2030],[90,780,2030],[91,780,2030]],"06022":[[71,640,2230],[74,640,2230],[82,640,2230],[85,640,2230],[88,640,2230],[90,640,2230]],"07422":[[71,780,2230],[74,780,2230],[82,780,2230],[85,780,2230],[88,780,2230],[90,780,2230]],"06024":[[82,640,2430],[90,640,2430]],"07424":[[82,780,2430],[90,780,2430]],"06018A":[[71,640,1845],[74,640,1845],[82,640,1845],[85,640,1845],[88,640,1845],[90,640,1845],[91,640,1845]],"06918A":[[71,730,1845],[74,730,1845],[82,730,1845],[85,730,1845],[88,730,1845],[90,730,1845],[91,730,1845]],"06022A":[[71,640,2245],[74,640,2245],[82,640,2245],[85,640,2245],[88,640,2245],[90,640,2245]],"06922A":[[71,730,2245],[74,730,2245],[82,730,2245],[85,730,2245],[88,730,2245],[90,730,2245]],"06024A":[[82,640,2445],[90,640,2445]],"06924A":[[82,730,2445],[90,730,2445]],"06020B":[[72,640,2060],[75,640,2060],[83,640,2060],[86,640,2060],[89,640,2060],[90,640,2060],[91,640,2060]],"06920B":[[72,730,2060],[75,730,2060],[83,730,2060],[86,730,2060],[89,730,2060],[90,730,2060],[91,730,2060]],"06022B":[[72,640,2260],[75,640,2260],[83,640,2260],[86,640,2260],[89,640,2260],[90,640,2260]],"06922B":[[72,730,2260],[75,730,2260],[83,730,2260],[86,730,2260],[89,730,2260],[90,730,2260]],"06020A":[[71,640,2045],[74,640,2045],[82,640,2045],[85,640,2045],[88,640,2045],[90,640,2045],[91,640,2045]],"06920A":[[71,730,2045],[74,730,2045],[82,730,2045],[85,730,2045],[88,730,2045],[90,730,2045],[91,730,2045]],"08213":[[70,860,1370]],"08215":[[70,860,1570]],"08218":[[70,860,1830]],"08220":[[71,860,2030]],"06922":[[71,730,2230],[74,730,2230],[82,730,2230],[85,730,2230],[88,730,2230]],"08218A":[[71,860,1845]],"08220A":[[71,860,2045]],"06924":[[82,730,2430]],"03618":[[90,405,1830],[91,405,1830]],"03620":[[90,405,2030],[91,405,2030]],"03622":[[90,405,2230]],"03624":[[90,405,2430]],"03618A":[[90,405,1845],[91,405,1845]],"03620A":[[90,405,2045],[91,405,2045]],"03622A":[[90,405,2245]],"03624A":[[90,405,2445]],"03618B":[[90,405,1860],[91,405,1860]],"03620B":[[90,405,2060],[91,405,2060]],"03622B":[[90,405,2260]],"03624B":[[90,405,2460]]}};
+
+const BRANDS = {
+  apw: {
+    label: "YKK AP APW430 / APW330",
+    data: DATA_APW,
+    catLabel: {"一般":"通常サッシ","防火":"防火サッシ"},
+    catColor: {"一般":"normal","防火":"bouka"},
+    catRoles: [{role:"normal", cat:"一般"}, {role:"bouka", cat:"防火"}],
+    defaultCat: "一般",
+    prefixMap: {
+      "F":  {label:"FIX窓",     match:function(t){ return t.indexOf("FIX窓") !== -1; }},
+      "S":  {label:"すべり出し窓", match:function(t){ return t.indexOf("すべり出し窓") !== -1 && t.indexOf("たて") !== 0; }},
+      "T":  {label:"たてすべり出し窓", match:function(t){ return t.indexOf("たてすべり出し窓") === 0; }},
+      "TF": {label:"たてすべり出し窓＋FIX段窓", match:function(t){ return t.indexOf("たてすべり出し窓＋FIX段窓") === 0; }},
+      "TR": {label:"たてすべり出し窓＋連窓", match:function(t){ return t.indexOf("たてすべり出し窓＋連窓") === 0; }},
+      "SF": {label:"すべり出し窓＋FIX段窓", match:function(t){ return t.indexOf("すべり出し窓＋FIX段窓") === 0; }},
+      "SR": {label:"すべり出し窓＋連窓", match:function(t){ return t.indexOf("すべり出し窓＋連窓") === 0; }},
+      "AW": {label:"引違い窓",   match:function(t){ return t.indexOf("引違い") !== -1; }}
+    },
+    seriesGroupOf: function(series){
+      if(series.indexOf("430")!==-1 || series.indexOf("431")!==-1) return "APW430";
+      if(series.indexOf("330")!==-1 || series.indexOf("331")!==-1) return "APW330";
+      return series;
+    },
+    exampleCode: "F16520 / 16520",
+    prefixHint: '対応済みの接頭辞：<code>F</code>＝FIX窓／<code>S</code>＝すべり出し窓／<code>T</code>＝たてすべり出し窓／<code>TF</code>＝たてすべり出し窓＋FIX段窓／<code>TR</code>＝たてすべり出し窓＋連窓／<code>SF</code>＝すべり出し窓＋FIX段窓／<code>SR</code>＝すべり出し窓＋連窓／<code>AW</code>＝引違い窓（該当窓種のみに絞り込みます）。未対応の接頭辞は無視され、数字部分のみで全窓種を横断検索します。呼称は <code>幅呼称＋高さ呼称</code>（例：165 + 20）で構成されます。',
+    footerNote: '例）16520 → 幅呼称165（サッシW実寸 1,690mm）＋高さ呼称20（サッシH実寸 約2,030〜2,070mm、窓種により異なる）。ガラス欄「◎」は標準設定、「〇」「▽」「△」「●」「▲」はカタログ内の特記（重量障子・非常用進入口対応など）を伴う設定です。',
+    footerSource: '出典：YKK AP「APW 430」「APW 330」商品カタログ／「APW 430・330 防火窓」商品カタログ（掲載頁は各カタログ内表記）。'
+  },
+  tw: {
+    label: "LIXIL TW",
+    data: DATA_TW,
+    catLabel: {"通常":"TW（通常）","防火":"TW防火戸"},
+    catColor: {"通常":"normal","防火":"bouka"},
+    catRoles: [{role:"normal", cat:"通常"}, {role:"bouka", cat:"防火"}],
+    defaultCat: "通常",
+    prefixMap: {
+      "F":  {label:"FIX窓",     match:function(t){ return t.indexOf("FIX窓") !== -1; }},
+      "S":  {label:"すべり出し窓", match:function(t){ return t.indexOf("すべり出し窓") !== -1 && t.indexOf("縦") !== 0; }},
+      "T":  {label:"縦すべり出し窓", match:function(t){ return t.indexOf("縦すべり出し窓") === 0; }},
+      "AW": {label:"引違い窓",   match:function(t){ return t.indexOf("引違い") !== -1; }}
+    },
+    seriesGroupOf: function(series){ return series; },
+    exampleCode: "F16520 / 16520",
+    prefixHint: '対応済みの接頭辞：<code>F</code>＝FIX窓／<code>S</code>＝すべり出し窓（横・高所用）／<code>T</code>＝縦すべり出し窓／<code>AW</code>＝引違い窓（該当窓種のみに絞り込みます）。未対応の接頭辞は無視され、数字部分のみで全窓種を横断検索します。呼称は <code>幅呼称＋高さ呼称</code>（例：060 + 20）で構成されます。窓種で絞り込みたい場合は下のプルダウンもご利用ください。',
+    footerNote: '例）16520 → 幅呼称165（サッシW実寸 1,690mm）＋高さ呼称20（サッシH実寸 約2,030mm、窓種・区分により異なる）。［　］内の数字（内法呼称）は今回のデータには含めていません。連窓・段窓（複数の単窓を「連窓方立」「段窓無目」でジョイントする組み方）は専用の呼称を持たず、組み合わせる単窓それぞれの呼称で確認してください（対応可否はカタログP.260「連窓・段窓部材」参照）。',
+    footerSource: '出典：LIXIL（TOSTEM）「TW・TW防火戸」商品カタログ（掲載頁は各カタログ内表記）。モジュール区分（在来／東・入）は区別せず集計しているため、実際の設定可否は必ずカタログ本紙でもご確認ください。'
+  }
+};
+
+let currentBrand = "apw";
+let DATA = BRANDS.apw.data;
+let CAT_LABEL = BRANDS.apw.catLabel;
+let CAT_COLOR = BRANDS.apw.catColor;
+let PREFIX_MAP = BRANDS.apw.prefixMap;
+
+let currentCat = BRANDS.apw.defaultCat;
+let mode = "single"; // "single" | "batch"
+let lastSingleInteraction = "code"; // "code" | "size" ： 呼称入力欄とサイズ選択のどちらを最後に操作したか
+let searchHistory = [];
+let typeFilter = null; // 窓種チップで選択中のファミリー名（nullなら絞り込みなし）
+let seriesFilter = null; // シリーズチップで選択中のグループ（"APW430"/"APW330"、防火のみ有効）
+let reverseUnit = "call"; // "mm" | "call" ： サイズ検索を実寸(mm)と呼称のどちらで選ぶか（既定は呼称）
+let historyTimer = null;
+
+const tabs = Array.prototype.slice.call(document.querySelectorAll(".tab"));
+for (let i = 0; i < tabs.length; i++) {
+  (function(t){
+    if(t.dataset.cat===currentCat) t.classList.add("active");
+    t.addEventListener("click", function(){
+      currentCat = t.dataset.cat;
+      for (let j = 0; j < tabs.length; j++) {
+        const x = tabs[j];
+        x.classList.toggle("active", x===t);
+        x.setAttribute("aria-selected", x===t ? "true":"false");
+      }
+      renderCurrent();
+    });
+  })(tabs[i]);
+}
+
+const brandSelectEl = document.getElementById("brandSelect");
+brandSelectEl.addEventListener("change", function(){
+  switchBrand(this.value);
+});
+
+function switchBrand(brand){
+  currentBrand = brand;
+  const cfg = BRANDS[brand];
+  brandSelectEl.value = brand;
+  DATA = cfg.data;
+  CAT_LABEL = cfg.catLabel;
+  CAT_COLOR = cfg.catColor;
+  PREFIX_MAP = cfg.prefixMap;
+  currentCat = cfg.defaultCat;
+  typeFilter = null;
+  seriesFilter = null;
+  searchHistory = [];
+
+  // タブのラベル・data-cat値をブランドに合わせて更新
+  cfg.catRoles.forEach(function(r){
+    const el = document.querySelector('.tab[data-role="' + r.role + '"]');
+    if(el){
+      el.dataset.cat = r.cat;
+      el.querySelector(".tab-label").textContent = cfg.catLabel[r.cat];
+      el.classList.toggle("active", r.cat === currentCat);
+      el.setAttribute("aria-selected", r.cat === currentCat ? "true" : "false");
+    }
+  });
+
+  // ヒント・フッターの文言を更新
+  document.getElementById("prefixHint").innerHTML = cfg.prefixHint;
+  document.getElementById("footerNote").textContent = cfg.footerNote;
+  document.getElementById("footerSource").textContent = cfg.footerSource;
+  input.placeholder = "例：" + cfg.exampleCode;
+  input.value = "";
+  batchCodeInputEl.placeholder = "例：" + cfg.exampleCode;
+  batchInputEl.value = "";
+
+  renderSeriesFilterChips();
+  renderTypeFilterChips();
+  populateWidthOptions();
+  populateBatchWidthOptions();
+  renderHistory();
+  renderCurrent();
+}
+
+const modeTabs = Array.prototype.slice.call(document.querySelectorAll(".mode-tab"));
+for (let i = 0; i < modeTabs.length; i++) {
+  (function(t){
+    t.addEventListener("click", function(){
+      setMode(t.dataset.mode);
+      renderCurrent();
+    });
+  })(modeTabs[i]);
+}
+
+function setMode(m){
+  mode = m;
+  for (let i = 0; i < modeTabs.length; i++) {
+    const t = modeTabs[i];
+    const active = t.dataset.mode === m;
+    t.classList.toggle("active", active);
+    t.setAttribute("aria-selected", active ? "true":"false");
+  }
+  const panelIds = {single:"panel-single", batch:"panel-batch"};
+  for (const key in panelIds) {
+    document.getElementById(panelIds[key]).classList.toggle("active", key===m);
+  }
+}
+
+function renderCurrent(){
+  if(mode==="single") {
+    if(lastSingleInteraction === "size") renderReverse();
+    else renderSingle();
+  }
+  else renderBatch();
+}
+
+const input = document.getElementById("codeInput");
+input.addEventListener("input", function(){
+  lastSingleInteraction = "code";
+  renderSingle();
+});
+
+const revWInput = document.getElementById("revW");
+const revHInput = document.getElementById("revH");
+revWInput.addEventListener("change", function(){
+  lastSingleInteraction = "size";
+  populateHeightOptions();
+  renderReverse();
+});
+revHInput.addEventListener("change", function(){
+  lastSingleInteraction = "size";
+  renderReverse();
+});
+
+const unitTabs = Array.prototype.slice.call(document.querySelectorAll(".unit-tab"));
+for (let i = 0; i < unitTabs.length; i++) {
+  (function(t){
+    t.addEventListener("click", function(){
+      reverseUnit = t.dataset.unit;
+      lastSingleInteraction = "size";
+      for (let j = 0; j < unitTabs.length; j++) {
+        unitTabs[j].classList.toggle("active", unitTabs[j]===t);
+        unitTabs[j].setAttribute("aria-selected", unitTabs[j]===t ? "true":"false");
+      }
+      updateReverseLabels();
+      populateWidthOptions();
+      renderReverse();
+    });
+  })(unitTabs[i]);
+}
+
+function updateReverseLabels(){
+  if(reverseUnit === "call"){
+    document.getElementById("revWLabel").textContent = "幅呼称";
+    document.getElementById("revHLabel").textContent = "高さ呼称";
+    document.getElementById("reverseHint").textContent =
+      "カタログの幅呼称・高さ呼称（例：165／20）から選びます。組み合わせは常に実在するものだけです。";
+  } else {
+    document.getElementById("revWLabel").textContent = "幅 W (mm)";
+    document.getElementById("revHLabel").textContent = "高さ H (mm)";
+    document.getElementById("reverseHint").textContent =
+      "現在の区分・シリーズ・窓種の絞り込みに沿って、実在するサイズだけをプルダウンから選べます。幅を選ぶと、対応する高さの候補が絞り込まれます。";
+  }
+}
+
+const seriesFilterSelectEl = document.getElementById("seriesFilterSelect");
+seriesFilterSelectEl.addEventListener("change", function(){
+  seriesFilter = this.value || null;
+  renderSeriesFilterChips();
+  populateWidthOptions();
+  populateBatchWidthOptions();
+  renderCurrent();
+});
+
+const typeFilterSelectEl = document.getElementById("typeFilterSelect");
+typeFilterSelectEl.addEventListener("change", function(){
+  typeFilter = this.value || null;
+  renderTypeFilterChips();
+  populateWidthOptions();
+  populateBatchWidthOptions();
+  renderCurrent();
+});
+
+const batchInputEl = document.getElementById("batchInput");
+document.getElementById("batchRun").addEventListener("click", renderBatch);
+batchInputEl.addEventListener("keydown", function(e){
+  if((e.ctrlKey || e.metaKey) && e.key === "Enter") renderBatch();
+});
+
+// 呼称一覧テキストエリアに1行追加して、その場でまとめて判定を再実行する
+function addLineToBatch(line){
+  if(!line) return;
+  const trimmed = batchInputEl.value.replace(/\s+$/, "");
+  batchInputEl.value = trimmed ? trimmed + "\n" + line : line;
+  renderBatch();
+}
+
+const batchCodeInputEl = document.getElementById("batchCodeInput");
+const batchAddCodeBtn = document.getElementById("batchAddCode");
+batchAddCodeBtn.addEventListener("click", function(){
+  const v = batchCodeInputEl.value.trim();
+  if(!v) return;
+  addLineToBatch(v);
+  batchCodeInputEl.value = "";
+  batchCodeInputEl.focus();
+});
+batchCodeInputEl.addEventListener("keydown", function(e){
+  if(e.key === "Enter"){
+    e.preventDefault();
+    batchAddCodeBtn.click();
+  }
+});
+
+const batchRevWEl = document.getElementById("batchRevW");
+const batchRevHEl = document.getElementById("batchRevH");
+const batchAddSizeBtn = document.getElementById("batchAddSize");
+
+function populateBatchWidthOptions(){
+  const entries = collectFilteredEntries();
+  const widths = Array.from(new Set(entries.map(function(e){ return e.code.substring(0,3); })))
+    .sort(function(a,b){ return a.localeCompare(b); });
+  const prevVal = batchRevWEl.value;
+  batchRevWEl.innerHTML = `<option value="">選択してください</option>` +
+    widths.map(function(w){ return `<option value="${w}">${w}</option>`; }).join("");
+  if(widths.indexOf(prevVal) !== -1){ batchRevWEl.value = prevVal; }
+  populateBatchHeightOptions();
+}
+
+function populateBatchHeightOptions(){
+  const wSel = batchRevWEl.value;
+  if(!wSel){
+    batchRevHEl.innerHTML = `<option value="">先に幅を選択</option>`;
+    batchRevHEl.disabled = true;
+    return;
+  }
+  batchRevHEl.disabled = false;
+  const entries = collectFilteredEntries().filter(function(e){ return e.code.substring(0,3) === wSel; });
+  const heights = Array.from(new Set(entries.map(function(e){ return e.code.substring(3); })))
+    .sort(function(a,b){ return a.localeCompare(b); });
+  const prevVal = batchRevHEl.value;
+  batchRevHEl.innerHTML = `<option value="">選択してください</option>` +
+    heights.map(function(h){ return `<option value="${h}">${h}</option>`; }).join("");
+  if(heights.indexOf(prevVal) !== -1){ batchRevHEl.value = prevVal; }
+}
+
+batchRevWEl.addEventListener("change", populateBatchHeightOptions);
+
+batchAddSizeBtn.addEventListener("click", function(){
+  const w = batchRevWEl.value, h = batchRevHEl.value;
+  if(!w || !h) return;
+  addLineToBatch(w + h);
+  batchRevWEl.value = "";
+  populateBatchHeightOptions();
+});
+populateBatchWidthOptions();
+
+function normalize(raw){
+  const digits = (raw.match(/\d+/g) || []).join("");
+  // 末尾のA/B/M（LIXIL TWのマドタイプ・段差違い等を示す接尾辞）は呼称コードの一部なので保持する
+  const trailing = raw.trim().match(/([ABMabm])\s*$/);
+  return trailing ? digits + trailing[1].toUpperCase() : digits;
+}
+
+function parseInput(raw){
+  const m = raw.match(/^\s*([A-Za-z]+)/);
+  const letters = m ? m[1].toUpperCase() : "";
+  const digits = normalize(raw);
+  // 長い接頭辞から優先的にマッチ（"AW"を"A"と誤認しないように）
+  let prefixKey = null;
+  const keys = Object.keys(PREFIX_MAP).sort(function(a,b){ return b.length - a.length; });
+  for (let i = 0; i < keys.length; i++) {
+    if (letters.indexOf(keys[i]) === 0) { prefixKey = keys[i]; break; }
+  }
+  return { digits: digits, prefixKey: prefixKey };
+}
+
+function lookup(code){
+  const entries = DATA.codes[code];
+  if(!entries) return [];
+  return entries.map(function(e){
+    const tid = e[0], w = e[1], h = e[2];
+    const t = DATA.types[tid];
+    return {
+      cat:t.cat, series:t.series, type:t.type, variant:t.variant,
+      note:t.note, page:t.page, sashW:w, sashH:h
+    };
+  });
+}
+
+// 窓種名から開閉方式のカテゴリーを大まかに判定する（YKK/LIXIL TW共通）
+function classifyWindow(type){
+  if(type.indexOf("FIX段窓")!==-1) return "fixCombo";
+  if(type.indexOf("連窓")!==-1) return "ganged";
+  if(type.indexOf("外倒し窓")!==-1) return "tiltBottom";
+  if(type.indexOf("上げ下げ窓")!==-1) return "updown";
+  if(type.indexOf("たてすべり出し窓")!==-1 || type.indexOf("縦すべり出し窓")!==-1) return "tiltSide";
+  if(type.indexOf("すべり出し窓")!==-1) return "tiltTop";
+  if(type.indexOf("ツーアクション")!==-1) return "twoAction";
+  if(type.indexOf("引違い")!==-1 || type.indexOf("スライディング")!==-1) return "slide";
+  if(type.indexOf("ドア")!==-1 || type.indexOf("テラス")!==-1) return "door";
+  if(type.indexOf("FIX窓")!==-1) return "fix";
+  return "plain";
+}
+
+// 分類ごとの開閉方式オーバーレイ（薄い線）をrect範囲内に描く
+function operationOverlay(kind, rx, ry, rw, rh){
+  const s = 'stroke="var(--ink)" stroke-width="1" opacity="0.55" fill="none" stroke-linecap="round"';
+  const x2 = rx + rw, y2 = ry + rh;
+  const midX = rx + rw/2, midY = ry + rh/2;
+  if(rw < 10 || rh < 10) return ""; // 小さすぎる場合は装飾を省略
+  switch(kind){
+    case "tiltSide": // たて/縦すべり出し窓：左辺ヒンジで斜めに開く
+      return `<line x1="${rx}" y1="${y2}" x2="${x2}" y2="${ry}" ${s}/>`
+           + `<line x1="${rx}" y1="${ry}" x2="${rx}" y2="${y2}" stroke="var(--ink)" stroke-width="2" opacity="0.55"/>`;
+    case "tiltTop": // すべり出し窓：上辺ヒンジで斜めに開く
+      return `<line x1="${rx}" y1="${y2}" x2="${x2}" y2="${ry}" ${s}/>`
+           + `<line x1="${rx}" y1="${ry}" x2="${x2}" y2="${ry}" stroke="var(--ink)" stroke-width="2" opacity="0.55"/>`;
+    case "tiltBottom": // 外倒し窓：下辺ヒンジで斜めに開く
+      return `<line x1="${rx}" y1="${ry}" x2="${x2}" y2="${y2}" ${s}/>`
+           + `<line x1="${rx}" y1="${y2}" x2="${x2}" y2="${y2}" stroke="var(--ink)" stroke-width="2" opacity="0.55"/>`;
+    case "twoAction": // ツーアクション窓：すべり出し＋室内側にも開く複合タイプ
+      return `<line x1="${rx}" y1="${y2}" x2="${x2}" y2="${ry}" ${s}/>`
+           + `<line x1="${rx}" y1="${ry}" x2="${x2}" y2="${y2}" ${s}/>`;
+    case "updown": // 上げ下げ窓：上下2枚が水平に分かれる
+      return `<line x1="${rx}" y1="${midY}" x2="${x2}" y2="${midY}" stroke="var(--ink)" stroke-width="1.5" opacity="0.55"/>`;
+    case "slide": // 引違い窓・スライディング：左右にスライドする2枚以上
+      return `<line x1="${midX}" y1="${ry}" x2="${midX}" y2="${y2}" ${s}/>`
+           + `<line x1="${rx+rw*0.28}" y1="${midY}" x2="${rx+rw*0.72}" y2="${midY}" ${s}/>`;
+    case "ganged": // ＋連窓：複数枚が並ぶ
+      return `<line x1="${rx+rw/3}" y1="${ry}" x2="${rx+rw/3}" y2="${y2}" ${s}/>`
+           + `<line x1="${rx+rw*2/3}" y1="${ry}" x2="${rx+rw*2/3}" y2="${y2}" ${s}/>`
+           + `<line x1="${rx}" y1="${y2}" x2="${rx+rw/3}" y2="${ry}" ${s}/>`;
+    case "fixCombo": // ＋FIX段窓：上段が可動、下段がFIX
+      return `<line x1="${rx}" y1="${midY}" x2="${x2}" y2="${midY}" stroke="var(--ink)" stroke-width="2" opacity="0.55"/>`
+           + `<line x1="${rx}" y1="${midY}" x2="${x2}" y2="${ry}" ${s}/>`;
+    case "door": // テラスドア・勝手口ドアなど：取っ手と開く軌跡
+      return `<circle cx="${rx+rw*0.78}" cy="${midY}" r="${Math.max(Math.min(rw,rh)*0.06,1)}" fill="var(--ink)" opacity="0.55"/>`
+           + `<path d="M ${rx} ${ry} A ${rw} ${rh} 0 0 1 ${x2} ${y2}" ${s}/>`;
+    case "fix":
+    case "plain":
+    default:
+      return "";
+  }
+}
+
+function svgDiagram(w, h, colorVar, type){
+  if(!w || !h) return "";
+  const box = 44;
+  const scale = Math.min(box / w, box / h);
+  const rw = Math.max(w * scale, 5);
+  const rh = Math.max(h * scale, 5);
+  const rx = (box - rw) / 2;
+  const ry = (box - rh) / 2;
+  const overlay = type ? operationOverlay(classifyWindow(type), rx, ry, rw, rh) : "";
+  return `
+  <svg viewBox="0 0 ${box} ${box}" width="44" height="44" aria-hidden="true">
+    <rect x="${rx}" y="${ry}" width="${rw}" height="${rh}"
+          rx="1.5" fill="var(--${colorVar}-bg)" stroke="var(--${colorVar})" stroke-width="1.5"/>
+    ${overlay}
+  </svg>`;
+}
+
+function variantLabel(m){
+  const parts = [];
+  if(m.variant) parts.push(m.variant);
+  if(m.note) parts.push(m.note.replace(/^障子/, "障子="));
+  return parts.join(" / ");
+}
+
+function cardHtml(m){
+  const color = CAT_COLOR[m.cat];
+  const dims = (m.sashW && m.sashH)
+    ? `W ${m.sashW.toLocaleString()}<span class="unit">mm</span> &times; H ${m.sashH.toLocaleString()}<span class="unit">mm</span>`
+    : `<span style="font-size:13px;color:var(--ink-soft);">実寸未取得（表記ゆれの可能性）</span>`;
+  const variant = variantLabel(m);
+  const codeRef = m.code ? `呼称 <b>${m.code}</b> ／ ` : "";
+  return `
+  <div class="card cat-${CAT_COLOR[m.cat]}">
+    <div class="diagram">${svgDiagram(m.sashW, m.sashH, color, m.type)}</div>
+    <div class="info">
+      <p class="meta">${m.series}</p>
+      <h3>${m.type}</h3>
+      ${variant ? `<p class="variant">${variant}</p>` : ""}
+      <div class="dims">${dims}</div>
+      <p class="page-ref">${codeRef}カタログ <b>P.${m.page}</b> 掲載</p>
+    </div>
+  </div>`;
+}
+
+function levenshtein(a, b){
+  const dp = [];
+  for (let i = 0; i <= a.length; i++) { dp.push([i]); }
+  for (let j = 0; j <= b.length; j++) { dp[0][j] = j; }
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = (a[i-1] === b[j-1])
+        ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j-1], dp[i-1][j], dp[i][j-1]);
+    }
+  }
+  return dp[a.length][b.length];
+}
+
+function findSimilarCodes(code, cat, limit){
+  const allCodes = Object.keys(DATA.codes);
+  const scored = allCodes.map(function(c){
+    const inCat = DATA.codes[c].some(function(e){ return DATA.types[e[0]].cat===cat; });
+    return { code:c, dist:levenshtein(code, c), inCat:inCat };
+  });
+  scored.sort(function(a,b){
+    if(a.dist !== b.dist) return a.dist - b.dist;
+    if(a.inCat !== b.inCat) return a.inCat ? -1 : 1;
+    return a.code.localeCompare(b.code);
+  });
+  return scored.filter(function(s){ return s.dist>0 && s.dist<=2 && s.code!==code; }).slice(0, limit || 5);
+}
+
+function similarBoxHtml(sims, prefixKey){
+  return `
+  <div class="similar-box">
+    似ている呼称（入力ミスの可能性）：
+    <div class="chips">` +
+    sims.map(function(s){
+      const fillCode = (prefixKey || "") + s.code;
+      return `<button class="similar-chip" onclick="goToCode('${fillCode}')">${s.code}</button>`;
+    }).join("") + `
+    </div>
+  </div>`;
+}
+
+function goToCode(code){
+  setMode("single");
+  lastSingleInteraction = "code";
+  input.value = code;
+  renderSingle();
+}
+
+function scheduleHistoryCommit(raw, found){
+  clearTimeout(historyTimer);
+  if(!found) return;
+  historyTimer = setTimeout(function(){ addHistory(raw); }, 800);
+}
+
+function addHistory(raw){
+  searchHistory = searchHistory.filter(function(h){ return h !== raw; });
+  searchHistory.unshift(raw);
+  if(searchHistory.length > 8) searchHistory = searchHistory.slice(0, 8);
+  renderHistory();
+}
+
+function renderHistory(){
+  const box = document.getElementById("historyBox");
+  if(searchHistory.length === 0){ box.style.display = "none"; return; }
+  box.style.display = "flex";
+  box.innerHTML = `<span class="label">最近チェックした呼称</span>` +
+    searchHistory.map(function(h){
+      return `<button class="history-chip" onclick="goToCode('${h}')">${h}</button>`;
+    }).join("");
+}
+
+function renderSingle(){
+  const raw = input.value.trim();
+  const area = document.getElementById("resultArea");
+  if(!raw){
+    area.innerHTML = `
+    <div class="empty-state">
+      <span class="big">&#9633;</span>
+      サッシ呼称を入力してください
+    </div>`;
+    return;
+  }
+  const parsed = parseInput(raw);
+  const code = parsed.digits;
+  if(!code){
+    area.innerHTML = `
+    <div class="empty-state">
+      <span class="big">&#9633;</span>
+      数字を含む呼称を入力してください
+    </div>`;
+    return;
+  }
+
+  // 窓種チップが選ばれていればそちらを優先。なければ英字接頭辞（F/S/AWなど）を見る。
+  let matchFn = null;
+  if(typeFilter){
+    matchFn = function(t){ return familyOf(t) === typeFilter; };
+  } else if(parsed.prefixKey){
+    matchFn = PREFIX_MAP[parsed.prefixKey].match;
+  }
+
+  const allNoPrefix = lookup(code);
+  const inCatNoPrefix = allNoPrefix.filter(function(m){ return m.cat===currentCat; });
+  const otherCat = currentCat==="防火" ? BRANDS[currentBrand].defaultCat : "防火";
+  const inOtherNoPrefix = allNoPrefix.filter(function(m){ return m.cat===otherCat; });
+
+  const inCatTypeFiltered = matchFn ? inCatNoPrefix.filter(function(m){ return matchFn(m.type); }) : inCatNoPrefix;
+  const inCat = applySeriesFilter(inCatTypeFiltered);
+  const inOther = matchFn ? inOtherNoPrefix.filter(function(m){ return matchFn(m.type); }) : inOtherNoPrefix;
+
+  // 窓種の絞り込みは「プルダウン（typeFilter）」と「接頭辞」のどちらか一方から来る。
+  // ラベルと「絞り込み中かどうか」は、どちらの経路でも正しく反映されるようにする。
+  const filterLabelParts = [];
+  if(typeFilter){ filterLabelParts.push(`窓種「<b>${typeFilter}</b>」`); }
+  else if(parsed.prefixKey){ filterLabelParts.push(`窓種「<b>${PREFIX_MAP[parsed.prefixKey].label}</b>」`); }
+  if(seriesFilterActive()){ filterLabelParts.push(`シリーズ「<b>${seriesFilter}</b>」`); }
+  const label = filterLabelParts.join("・");
+  const filterActive = !!matchFn || seriesFilterActive();
+
+  const filterNote = label
+    ? ` ／ ${label}で絞り込み中 <button class="clear-prefix" onclick="clearFilter('${code}')">解除</button>`
+    : "";
+  let html = `<p class="status-line">呼称 <b>${code}</b>（入力：${raw}）／ ${CAT_LABEL[currentCat]}での判定${filterNote}</p>`;
+
+  if(inCat.length===0){
+    // 絞り込みだけが原因で0件なのか、そもそも呼称自体が無いのかを切り分ける
+    if(filterActive && inCatNoPrefix.length>0){
+      html += `
+      <div class="empty-state">
+        <span class="big">&times;</span>
+        ${CAT_LABEL[currentCat]}に、この呼称の ${label} 設定は<b>ありません</b>
+      </div>
+      <div class="cross-hint">
+        ただし呼称自体は ${CAT_LABEL[currentCat]}内に ${inCatNoPrefix.length} 件あります。
+        <button onclick="clearFilter('${code}')">絞り込みを解除して見る</button>
+      </div>`;
+    } else {
+      html += `
+      <div class="empty-state">
+        <span class="big">&times;</span>
+        ${CAT_LABEL[currentCat]}にこの呼称の規格サイズは<b>ありません</b>
+      </div>`;
+    }
+    if(inOther.length>0){
+      html += `
+      <div class="cross-hint">
+        ただし <b>${CAT_LABEL[otherCat]}</b> には ${inOther.length} 件見つかりました。
+        <button onclick="switchCat('${otherCat}')">${CAT_LABEL[otherCat]}を見る</button>
+      </div>`;
+    }
+    if(allNoPrefix.length===0){
+      const sims = findSimilarCodes(code, currentCat, 4);
+      if(sims.length>0){
+        html += similarBoxHtml(sims, parsed.prefixKey);
+      }
+    }
+  } else {
+    html += `<div class="result-grid">` + inCat.map(cardHtml).join("") + `</div>`;
+  }
+
+  area.innerHTML = html;
+  scheduleHistoryCommit(raw, allNoPrefix.length>0);
+}
+
+function clearFilter(code){
+  typeFilter = null;
+  seriesFilter = null;
+  renderTypeFilterChips();
+  renderSeriesFilterChips();
+  populateWidthOptions();
+  lastSingleInteraction = "code";
+  input.value = code;
+  renderSingle();
+}
+
+function switchCat(cat){
+  currentCat = cat;
+  for (let j = 0; j < tabs.length; j++) {
+    const x = tabs[j];
+    x.classList.toggle("active", x.dataset.cat===cat);
+    x.setAttribute("aria-selected", x.dataset.cat===cat ? "true":"false");
+  }
+  renderSeriesFilterChips();
+  renderTypeFilterChips();
+  populateWidthOptions();
+  populateBatchWidthOptions();
+  renderCurrent();
+}
+
+// シリーズ名を "APW430" / "APW330" の系統グループに丸める（431は430系、331は330系のテラス戸コンパニオン）
+function seriesGroupOf(series){
+  return BRANDS[currentBrand].seriesGroupOf(series);
+}
+
+function getSeriesGroups(cat){
+  const set = {};
+  for (let i = 0; i < DATA.types.length; i++) {
+    const t = DATA.types[i];
+    if(t.cat === cat){ set[seriesGroupOf(t.series)] = true; }
+  }
+  return Object.keys(set).sort(function(a,b){ return a.localeCompare(b, "ja"); });
+}
+
+function renderSeriesFilterChips(){
+  const row = document.getElementById("seriesFilterRow");
+  const groups = getSeriesGroups(currentCat);
+  if(groups.length <= 1){
+    row.style.display = "none";
+    seriesFilter = null;
+    return;
+  }
+  row.style.display = "block";
+  if(seriesFilter && groups.indexOf(seriesFilter)===-1){ seriesFilter = null; }
+  const select = document.getElementById("seriesFilterSelect");
+  select.innerHTML = `<option value="">すべて</option>` +
+    groups.map(function(g){ return `<option value="${g}">${g}</option>`; }).join("");
+  select.value = seriesFilter || "";
+}
+
+// 窓種チップの「（グレモンハンドル仕様）」のような付帯仕様を除いたファミリー名を返す
+function familyOf(typeStr){
+  return typeStr.replace(/（[^）]*）/g, "").trim();
+}
+
+function getFamilies(cat){
+  const set = {};
+  for (let i = 0; i < DATA.types.length; i++) {
+    const t = DATA.types[i];
+    if(t.cat === cat){ set[familyOf(t.type)] = true; }
+  }
+  return Object.keys(set).sort(function(a,b){ return a.localeCompare(b, "ja"); });
+}
+
+function renderTypeFilterChips(){
+  const families = getFamilies(currentCat);
+  if(typeFilter && families.indexOf(typeFilter)===-1){ typeFilter = null; }
+  const select = document.getElementById("typeFilterSelect");
+  select.innerHTML = `<option value="">すべて</option>` +
+    families.map(function(f){ return `<option value="${f}">${f}</option>`; }).join("");
+  select.value = typeFilter || "";
+}
+renderSeriesFilterChips();
+renderTypeFilterChips();
+
+// 現在有効な絞り込み条件をまとめて判定・表示するためのヘルパー
+function seriesFilterActive(){
+  return !!seriesFilter;
+}
+function hasActiveFilter(){
+  return !!typeFilter || seriesFilterActive();
+}
+function activeFilterLabel(){
+  const parts = [];
+  if(typeFilter) parts.push(`窓種「<b>${typeFilter}</b>」`);
+  if(seriesFilterActive()) parts.push(`シリーズ「<b>${seriesFilter}</b>」`);
+  return parts.join("・");
+}
+function applySeriesFilter(list){
+  if(!seriesFilterActive()) return list;
+  return list.filter(function(m){ return seriesGroupOf(m.series) === seriesFilter; });
+}
+
+// 実寸プルダウン用：現在の区分・シリーズ・窓種の絞り込みに合致する (呼称, 幅, 高さ) をすべて集める
+function collectFilteredEntries(){
+  const matchFn = typeFilter ? function(t){ return familyOf(t) === typeFilter; } : null;
+  const seriesActive = seriesFilterActive();
+  const out = [];
+  for (const code in DATA.codes) {
+    const entries = DATA.codes[code];
+    for (let i = 0; i < entries.length; i++) {
+      const tid = entries[i][0], sw = entries[i][1], sh = entries[i][2];
+      const t = DATA.types[tid];
+      if(t.cat !== currentCat) continue;
+      if(matchFn && !matchFn(t.type)) continue;
+      if(seriesActive && seriesGroupOf(t.series) !== seriesFilter) continue;
+      if(sw==null || sh==null) continue;
+      out.push({code:code, sashW:sw, sashH:sh});
+    }
+  }
+  return out;
+}
+
+function populateWidthOptions(){
+  const entries = collectFilteredEntries();
+  const prevVal = revWInput.value;
+  let html;
+  if(reverseUnit === "call"){
+    const widths = Array.from(new Set(entries.map(function(e){ return e.code.substring(0,3); })))
+      .sort(function(a,b){ return a.localeCompare(b); });
+    html = `<option value="">選択してください</option>` +
+      widths.map(function(w){ return `<option value="${w}">${w}</option>`; }).join("");
+    revWInput.innerHTML = html;
+    if(widths.indexOf(prevVal) !== -1){ revWInput.value = prevVal; }
+  } else {
+    const widths = Array.from(new Set(entries.map(function(e){ return e.sashW; })))
+      .sort(function(a,b){ return a - b; });
+    html = `<option value="">選択してください</option>` +
+      widths.map(function(w){ return `<option value="${w}">${w.toLocaleString()} mm</option>`; }).join("");
+    revWInput.innerHTML = html;
+    if(widths.indexOf(Number(prevVal)) !== -1){ revWInput.value = prevVal; }
+  }
+  populateHeightOptions();
+}
+
+function populateHeightOptions(){
+  const wSel = revWInput.value;
+  if(!wSel){
+    revHInput.innerHTML = `<option value="">先に幅を選択</option>`;
+    revHInput.disabled = true;
+    return;
+  }
+  revHInput.disabled = false;
+  const prevVal = revHInput.value;
+  if(reverseUnit === "call"){
+    const entries = collectFilteredEntries().filter(function(e){ return e.code.substring(0,3) === wSel; });
+    const heights = Array.from(new Set(entries.map(function(e){ return e.code.substring(3); })))
+      .sort(function(a,b){ return a.localeCompare(b); });
+    revHInput.innerHTML = `<option value="">選択してください</option>` +
+      heights.map(function(h){ return `<option value="${h}">${h}</option>`; }).join("");
+    if(heights.indexOf(prevVal) !== -1){ revHInput.value = prevVal; }
+  } else {
+    const entries = collectFilteredEntries().filter(function(e){ return String(e.sashW) === wSel; });
+    const heights = Array.from(new Set(entries.map(function(e){ return e.sashH; })))
+      .sort(function(a,b){ return a - b; });
+    revHInput.innerHTML = `<option value="">選択してください</option>` +
+      heights.map(function(h){ return `<option value="${h}">${h.toLocaleString()} mm</option>`; }).join("");
+    if(heights.indexOf(Number(prevVal)) !== -1){ revHInput.value = prevVal; }
+  }
+}
+populateWidthOptions();
+
+function renderReverse(){
+  const area = document.getElementById("resultArea");
+  if(reverseUnit === "call"){
+    renderReverseByCall(area);
+    return;
+  }
+  const wVal = parseInt(revWInput.value, 10);
+  const hVal = parseInt(revHInput.value, 10);
+  if(!wVal || !hVal){
+    area.innerHTML = `
+    <div class="empty-state">
+      <span class="big">&#9633;</span>
+      幅・高さを選択してください
+    </div>`;
+    return;
+  }
+  const matchFn = typeFilter ? function(t){ return familyOf(t) === typeFilter; } : null;
+  const seriesActive = seriesFilterActive();
+
+  const exact = [];
+  const near = [];
+  for (const code in DATA.codes) {
+    const entries = DATA.codes[code];
+    for (let i = 0; i < entries.length; i++) {
+      const tid = entries[i][0], sw = entries[i][1], sh = entries[i][2];
+      const t = DATA.types[tid];
+      if(t.cat !== currentCat) continue;
+      if(matchFn && !matchFn(t.type)) continue;
+      if(seriesActive && seriesGroupOf(t.series) !== seriesFilter) continue;
+      if(sw==null || sh==null) continue;
+      const rec = {
+        code:code, cat:t.cat, series:t.series, type:t.type,
+        variant:t.variant, note:t.note, page:t.page, sashW:sw, sashH:sh
+      };
+      if(sw===wVal && sh===hVal){ exact.push(rec); }
+      else { rec.dist = Math.abs(sw-wVal) + Math.abs(sh-hVal); near.push(rec); }
+    }
+  }
+
+  const label = activeFilterLabel();
+  const filterNote = label
+    ? ` ／ ${label}で絞り込み中 <button class="clear-prefix" onclick="clearTypeFilterOnly()">解除</button>`
+    : "";
+  let html = `<p class="status-line">実寸 <b>W${wVal} &times; H${hVal}</b>（mm）／ ${CAT_LABEL[currentCat]}での検索${filterNote}</p>`;
+
+  if(exact.length>0){
+    html += `<div class="result-grid">` + exact.map(cardHtml).join("") + `</div>`;
+  } else {
+    html += `
+    <div class="empty-state">
+      <span class="big">&times;</span>
+      ${CAT_LABEL[currentCat]}に完全一致するサイズは<b>ありません</b>
+    </div>`;
+    near.sort(function(a,b){ return a.dist - b.dist; });
+    const top = near.slice(0, 5);
+    if(top.length>0){
+      html += `
+      <div class="similar-box">
+        近いサイズ（差の小さい順）：
+        <div class="chips">` +
+        top.map(function(m){
+          return `<button class="similar-chip" onclick="goToCode('${m.code}')">${m.code}<small>${m.type} W${m.sashW}&times;H${m.sashH}</small></button>`;
+        }).join("") + `
+        </div>
+      </div>`;
+    }
+  }
+
+  area.innerHTML = html;
+  const distinctCodes = Array.from(new Set(exact.map(function(m){ return m.code; })));
+  if(distinctCodes.length === 1){
+    input.value = distinctCodes[0];
+    scheduleHistoryCommit(distinctCodes[0], true);
+  }
+}
+
+function renderReverseByCall(area){
+  const wSel = revWInput.value;
+  const hSel = revHInput.value;
+  if(!wSel || !hSel){
+    area.innerHTML = `
+    <div class="empty-state">
+      <span class="big">&#9633;</span>
+      幅呼称・高さ呼称を選択してください
+    </div>`;
+    return;
+  }
+  const code = wSel + hSel;
+  const matchFn = typeFilter ? function(t){ return familyOf(t) === typeFilter; } : null;
+
+  let inCat = lookup(code).filter(function(m){ return m.cat === currentCat; });
+  if(matchFn){ inCat = inCat.filter(function(m){ return matchFn(m.type); }); }
+  inCat = applySeriesFilter(inCat);
+
+  const label = activeFilterLabel();
+  const filterNote = label
+    ? ` ／ ${label}で絞り込み中 <button class="clear-prefix" onclick="clearTypeFilterOnly()">解除</button>`
+    : "";
+  let html = `<p class="status-line">呼称 <b>${code}</b>（幅呼称${wSel}・高さ呼称${hSel}）／ ${CAT_LABEL[currentCat]}での検索${filterNote}</p>`;
+
+  if(inCat.length>0){
+    html += `<div class="result-grid">` + inCat.map(cardHtml).join("") + `</div>`;
+  } else {
+    html += `
+    <div class="empty-state">
+      <span class="big">&times;</span>
+      ${CAT_LABEL[currentCat]}にこの組み合わせの設定は<b>ありません</b>
+    </div>`;
+  }
+  area.innerHTML = html;
+  input.value = code;
+  scheduleHistoryCommit(code, inCat.length>0);
+}
+
+function clearTypeFilterOnly(){
+  typeFilter = null;
+  seriesFilter = null;
+  renderTypeFilterChips();
+  renderSeriesFilterChips();
+  populateWidthOptions();
+  lastSingleInteraction = "size";
+  renderReverse();
+}
+
+function renderBatch(){
+  const area = document.getElementById("resultArea");
+  const raw = batchInputEl.value;
+  const lines = raw.split(/\r?\n/).map(function(l){ return l.trim(); }).filter(function(l){ return l.length>0; });
+  if(lines.length===0){
+    area.innerHTML = `
+    <div class="empty-state">
+      <span class="big">&#9633;</span>
+      1行に1つずつ呼称を入力してください
+    </div>`;
+    return;
+  }
+  const otherCat = currentCat==="防火" ? BRANDS[currentBrand].defaultCat : "防火";
+  const chipMatch = typeFilter ? function(t){ return familyOf(t) === typeFilter; } : null;
+
+  const rows = lines.map(function(line){
+    const parsed = parseInput(line);
+    const code = parsed.digits;
+    if(!code){
+      return {line:line, statusClass:"s-miss", statusText:"数字なし", detail:""};
+    }
+    const prefixInfo = parsed.prefixKey ? PREFIX_MAP[parsed.prefixKey] : null;
+    const matchFn = chipMatch || (prefixInfo ? prefixInfo.match : null);
+    const labelParts = [];
+    if(typeFilter) labelParts.push(typeFilter);
+    else if(prefixInfo) labelParts.push(prefixInfo.label);
+    if(seriesFilterActive()) labelParts.push(seriesFilter);
+    const filterLabel = labelParts.join("・") || null;
+    const allNoPrefix = lookup(code);
+
+    if(allNoPrefix.length===0){
+      const sim = findSimilarCodes(code, currentCat, 1);
+      const detail = sim.length>0
+        ? `<button class="similar-chip" style="padding:3px 9px;font-size:12px;" onclick="goToCode('${(parsed.prefixKey||"")+sim[0].code}')">もしかして ${sim[0].code}？</button>`
+        : "";
+      return {line:line, statusClass:"s-miss", statusText:"なし", detail:detail};
+    }
+
+    const inCatNoPrefix = allNoPrefix.filter(function(m){ return m.cat===currentCat; });
+    const inOtherNoPrefix = allNoPrefix.filter(function(m){ return m.cat===otherCat; });
+    const inCatTypeFiltered = matchFn ? inCatNoPrefix.filter(function(m){ return matchFn(m.type); }) : inCatNoPrefix;
+    const inCat = applySeriesFilter(inCatTypeFiltered);
+
+    if(inCat.length>0){
+      const parts = inCat.slice(0,2).map(function(m){
+        const v = m.variant ? `（${m.variant}）` : "";
+        return `${m.type}${v} W${m.sashW}&times;H${m.sashH} <small>P.${m.page}</small>`;
+      });
+      let detail = parts.join("<br>");
+      if(inCat.length>2) detail += `<br><small>ほか${inCat.length-2}件</small>`;
+      return {line:line, statusClass:"s-ok", statusText:"あり", detail:detail};
+    }
+    if((matchFn || seriesFilterActive()) && inCatNoPrefix.length>0){
+      return {
+        line:line, statusClass:"s-warn", statusText:"条件違い",
+        detail:`${filterLabel ? "「"+filterLabel+"」" : "絞り込み条件に"}該当なし<br><small>他条件に${inCatNoPrefix.length}件あります</small>`
+      };
+    }
+    if(inOtherNoPrefix.length>0){
+      return {
+        line:line, statusClass:"s-warn", statusText:`${CAT_LABEL[otherCat]}のみ`,
+        detail:`<small>${CAT_LABEL[otherCat]}に${inOtherNoPrefix.length}件あります</small>`
+      };
+    }
+    return {line:line, statusClass:"s-miss", statusText:"なし", detail:""};
+  });
+
+  const filterNote = activeFilterLabel() ? ` ／ ${activeFilterLabel()}で絞り込み中` : "";
+  let html = `<p class="status-line">${CAT_LABEL[currentCat]}での一括判定（${rows.length}件）${filterNote}</p>`;
+  html += `<table class="batch-table"><thead><tr><th>入力</th><th>判定</th><th>内容</th></tr></thead><tbody>`;
+  html += rows.map(function(r){
+    return `<tr>
+      <td class="code-cell">${r.line}</td>
+      <td><span class="status-flag ${r.statusClass}">${r.statusText}</span></td>
+      <td class="detail">${r.detail || ""}</td>
+    </tr>`;
+  }).join("");
+  html += `</tbody></table>`;
+  area.innerHTML = html;
+}
+
+renderCurrent();
+</script>
+</body>
+</html>
