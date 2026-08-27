@@ -1164,9 +1164,10 @@ function renderSeriesFilterChips(){
   select.value = seriesFilter || "";
 }
 
-// 窓種チップの「（グレモンハンドル仕様）」のような付帯仕様を除いたファミリー名を返す
+// 窓種チップの「（グレモンハンドル仕様）」のような付帯仕様や、「高所用」のような取付位置の違いを
+// 除いたファミリー名を返す（例：「高所用すべり出し窓」は「すべり出し窓」と同じ窓種として扱う）
 function familyOf(typeStr){
-  return typeStr.replace(/（[^）]*）/g, "").trim();
+  return typeStr.replace(/（[^）]*）/g, "").replace(/^高所用/, "").trim();
 }
 
 function getFamilies(cat){
