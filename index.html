@@ -1041,7 +1041,7 @@ function renderSingle(){
   // 窓種チップが選ばれていればそちらを優先。なければ英字接頭辞（F/S/AWなど）を見る。
   let matchFn = null;
   if(typeFilter){
-    matchFn = function(t){ return familyOf(t) === typeFilter; };
+    matchFn = function(t){ return familyMatches(t, typeFilter); };
   } else if(parsed.prefixKey){
     matchFn = PREFIX_MAP[parsed.prefixKey].match;
   }
@@ -1164,10 +1164,17 @@ function renderSeriesFilterChips(){
   select.value = seriesFilter || "";
 }
 
-// 窓種チップの「（グレモンハンドル仕様）」のような付帯仕様や、「高所用」のような取付位置の違いを
-// 除いたファミリー名を返す（例：「高所用すべり出し窓」は「すべり出し窓」と同じ窓種として扱う）
+// 窓種チップの「（グレモンハンドル仕様）」のような付帯仕様を除いたファミリー名を返す
 function familyOf(typeStr){
-  return typeStr.replace(/（[^）]*）/g, "").replace(/^高所用/, "").trim();
+  return typeStr.replace(/（[^）]*）/g, "").trim();
+}
+
+// 窓種フィルタとの一致判定。基本の窓種（例：「すべり出し窓」）を選んだ場合は、
+// 「高所用〇〇」のような取付位置違いの候補も合わせて表示する（逆方向には広げない）。
+function familyMatches(actualType, filterFamily){
+  const fam = familyOf(actualType);
+  if (fam === filterFamily) return true;
+  return fam.replace(/^高所用/, "") === filterFamily;
 }
 
 function getFamilies(cat){
@@ -1210,7 +1217,7 @@ function applySeriesFilter(list){
 
 // 実寸プルダウン用：現在の区分・シリーズ・窓種の絞り込みに合致する (呼称, 幅, 高さ) をすべて集める
 function collectFilteredEntries(){
-  const matchFn = typeFilter ? function(t){ return familyOf(t) === typeFilter; } : null;
+  const matchFn = typeFilter ? function(t){ return familyMatches(t, typeFilter); } : null;
   const seriesActive = seriesFilterActive();
   const out = [];
   for (const code in DATA.codes) {
@@ -1293,7 +1300,7 @@ function renderReverse(){
     </div>`;
     return;
   }
-  const matchFn = typeFilter ? function(t){ return familyOf(t) === typeFilter; } : null;
+  const matchFn = typeFilter ? function(t){ return familyMatches(t, typeFilter); } : null;
   const seriesActive = seriesFilterActive();
 
   const exact = [];
@@ -1365,7 +1372,7 @@ function renderReverseByCall(area){
     return;
   }
   const code = wSel + hSel;
-  const matchFn = typeFilter ? function(t){ return familyOf(t) === typeFilter; } : null;
+  const matchFn = typeFilter ? function(t){ return familyMatches(t, typeFilter); } : null;
 
   let inCat = lookup(code).filter(function(m){ return m.cat === currentCat; });
   if(matchFn){ inCat = inCat.filter(function(m){ return matchFn(m.type); }); }
@@ -1414,7 +1421,7 @@ function renderBatch(){
     return;
   }
   const otherCat = currentCat==="防火" ? BRANDS[currentBrand].defaultCat : "防火";
-  const chipMatch = typeFilter ? function(t){ return familyOf(t) === typeFilter; } : null;
+  const chipMatch = typeFilter ? function(t){ return familyMatches(t, typeFilter); } : null;
 
   const rows = lines.map(function(line){
     const parsed = parseInput(line);
