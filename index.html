@@ -939,12 +939,26 @@ const CATALOG_URLS = {
   APW330: 'https://webcatalog.ykkap.co.jp/iportal/CatalogDetail.do?method=initial_screen&volumeID=YKKAPDC1&categoryID=1610000&catalogID=13215560000&labelID=&type=mc&position=4&sortKey=CatalogMain1410000&sortOrder=ASC&designID=pro'
 };
 
-function catalogUrl(m){
-  if(m.series.startsWith("TW")) return CATALOG_URLS.TW;
-  if(m.cat === "防火") return CATALOG_URLS.APW_FIRE;
-  if(m.series.startsWith("APW 430") || m.series.startsWith("APW 431")) return CATALOG_URLS.APW430;
-  if(m.series.startsWith("APW 330") || m.series.startsWith("APW 331")) return CATALOG_URLS.APW330;
+// ページ直リンク（任意）。メーカーのWEBカタログで該当ページを開き、
+// 「このページを共有」等で取得した個別URLを見つけたらここに追記する。
+// キーは `${カタログ区分}-${カタログ内の掲載頁}`（カタログ区分はCATALOG_URLSのキーと同じ：
+// TW / APW_FIRE / APW430 / APW330）。未登録のページはCATALOG_URLSの表紙にフォールバックする。
+const PAGE_URL_OVERRIDES = {
+  // 例: 'APW430-70': 'https://webcatalog.ykkap.co.jp/.....'
+};
+
+function catalogGroupKey(m){
+  if(m.series.startsWith("TW")) return "TW";
+  if(m.cat === "防火") return "APW_FIRE";
+  if(m.series.startsWith("APW 430") || m.series.startsWith("APW 431")) return "APW430";
+  if(m.series.startsWith("APW 330") || m.series.startsWith("APW 331")) return "APW330";
   return null;
+}
+
+function catalogUrl(m){
+  const key = catalogGroupKey(m);
+  if(!key) return null;
+  return PAGE_URL_OVERRIDES[`${key}-${m.page}`] || CATALOG_URLS[key];
 }
 
 function cardHtml(m){
@@ -954,9 +968,11 @@ function cardHtml(m){
     : `<span style="font-size:13px;color:var(--ink-soft);">実寸未取得（表記ゆれの可能性）</span>`;
   const variant = variantLabel(m);
   const codeRef = m.code ? `呼称 <b>${m.code}</b> ／ ` : "";
+  const groupKey = catalogGroupKey(m);
+  const hasDirectLink = groupKey && PAGE_URL_OVERRIDES[`${groupKey}-${m.page}`];
   const url = catalogUrl(m);
   const pageNum = url
-    ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="page-link" title="WEBカタログを開く（該当ページは表紙から探してください）">P.${m.page}</a>`
+    ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="page-link" title="${hasDirectLink ? "該当ページを開く" : "WEBカタログを開く（該当ページは表紙から探してください）"}">P.${m.page}</a>`
     : `P.${m.page}`;
   return `
   <div class="card cat-${CAT_COLOR[m.cat]}">
