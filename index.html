@@ -357,6 +357,13 @@ textarea#batchInput:focus-visible{outline:2px solid var(--ink);outline-offset:1p
   color:var(--ink-soft);
 }
 .card .page-ref b{color:var(--ink);font-family:var(--mono);}
+.card .page-ref a.page-link{
+  color:var(--ink);
+  text-decoration:underline;
+  text-decoration-style:dotted;
+  text-underline-offset:2px;
+}
+.card .page-ref a.page-link:hover{color:var(--normal);}
 
 /* --- 一括チェック表 -------------------------------------------- */
 .batch-table{width:100%;border-collapse:collapse;margin-top:2px;}
@@ -925,6 +932,21 @@ function variantLabel(m){
   return parts.join(" / ");
 }
 
+const CATALOG_URLS = {
+  TW: 'https://webcatalog.lixil.co.jp/iportal/CatalogDetail.do?method=initial_screen&catalogID=15136800000&volumeID=LXL13001&designID=newinter',
+  APW_FIRE: 'https://webcatalog.ykkap.co.jp/iportal/CatalogDetail.do?method=initial_screen&volumeID=YKKAPDC1&categoryID=4146210000&catalogID=12927020000&sortKey=CatalogMain1410000&sortOrder=ASC&position=430&designID=pro',
+  APW430: 'https://webcatalog.ykkap.co.jp/ykk/cgi-bin/catalogDetail.fcgi?volumeID=YKKAPDC1&catalogID=XAAAA-H25-074-2&designID=sppro',
+  APW330: 'https://webcatalog.ykkap.co.jp/iportal/CatalogDetail.do?method=initial_screen&volumeID=YKKAPDC1&categoryID=1610000&catalogID=13215560000&labelID=&type=mc&position=4&sortKey=CatalogMain1410000&sortOrder=ASC&designID=pro'
+};
+
+function catalogUrl(m){
+  if(m.series.startsWith("TW")) return CATALOG_URLS.TW;
+  if(m.cat === "防火") return CATALOG_URLS.APW_FIRE;
+  if(m.series.startsWith("APW 430") || m.series.startsWith("APW 431")) return CATALOG_URLS.APW430;
+  if(m.series.startsWith("APW 330") || m.series.startsWith("APW 331")) return CATALOG_URLS.APW330;
+  return null;
+}
+
 function cardHtml(m){
   const color = CAT_COLOR[m.cat];
   const dims = (m.sashW && m.sashH)
@@ -932,6 +954,10 @@ function cardHtml(m){
     : `<span style="font-size:13px;color:var(--ink-soft);">実寸未取得（表記ゆれの可能性）</span>`;
   const variant = variantLabel(m);
   const codeRef = m.code ? `呼称 <b>${m.code}</b> ／ ` : "";
+  const url = catalogUrl(m);
+  const pageNum = url
+    ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="page-link" title="WEBカタログを開く（該当ページは表紙から探してください）">P.${m.page}</a>`
+    : `P.${m.page}`;
   return `
   <div class="card cat-${CAT_COLOR[m.cat]}">
     <div class="diagram">${svgDiagram(m.sashW, m.sashH, color, m.type)}</div>
@@ -940,7 +966,7 @@ function cardHtml(m){
       <h3>${m.type}</h3>
       ${variant ? `<p class="variant">${variant}</p>` : ""}
       <div class="dims">${dims}</div>
-      <p class="page-ref">${codeRef}カタログ <b>P.${m.page}</b> 掲載</p>
+      <p class="page-ref">${codeRef}カタログ <b>${pageNum}</b> 掲載</p>
     </div>
   </div>`;
 }
