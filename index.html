@@ -932,17 +932,28 @@ function variantLabel(m){
   return parts.join(" / ");
 }
 
-const CATALOG_URLS = {
-  TW: 'https://webcatalog.lixil.co.jp/iportal/CatalogDetail.do?method=initial_screen&catalogID=15136800000&volumeID=LXL13001&designID=newinter',
-  APW_FIRE: 'https://webcatalog.ykkap.co.jp/iportal/CatalogDetail.do?method=initial_screen&volumeID=YKKAPDC1&categoryID=4146210000&catalogID=12927020000&sortKey=CatalogMain1410000&sortOrder=ASC&position=430&designID=pro',
-  APW430: 'https://webcatalog.ykkap.co.jp/ykk/cgi-bin/catalogDetail.fcgi?volumeID=YKKAPDC1&catalogID=XAAAA-H25-074-2&designID=sppro',
-  APW330: 'https://webcatalog.ykkap.co.jp/iportal/CatalogDetail.do?method=initial_screen&volumeID=YKKAPDC1&categoryID=1610000&catalogID=13215560000&labelID=&type=mc&position=4&sortKey=CatalogMain1410000&sortOrder=ASC&designID=pro'
+// YKKのWEBカタログビューア（CatalogViewInterfaceStartUpAction.do）は
+// pageGroupId にカタログ内の掲載頁番号をそのまま渡すと該当ページが開く。
+// catalogId はカタログ区分ごとに固定（下記YKK_CATALOG_IDS）。
+const YKK_CATALOG_IDS = {
+  APW430: '12886420000',
+  APW330: '13215560000',
+  APW_FIRE: '12927020000'
 };
+function ykkPageUrl(catalogId, page){
+  return `https://webcatalog.ykkap.co.jp/iportal/CatalogViewInterfaceStartUpAction.do?method=startUp&mode=PAGE&catalogCategoryId=&catalogId=${catalogId}&pageGroupId=${page}&volumeID=YKKAPDC1&keyword=&categoryID=&sortMode=&sortKey=&sortOrder=&designID=pro&designConfirmFlg=`;
+}
 
-// ページ直リンク（任意）。メーカーのWEBカタログで該当ページを開き、
-// 「このページを共有」等で取得した個別URLを見つけたらここに追記する。
-// キーは `${カタログ区分}-${カタログ内の掲載頁}`（カタログ区分はCATALOG_URLSのキーと同じ：
-// TW / APW_FIRE / APW430 / APW330）。未登録のページはCATALOG_URLSの表紙にフォールバックする。
+// LIXILのWEBカタログ（openCatalogAuth.cgi）は p にカタログ内の掲載頁番号を
+// そのまま渡すと該当ページが開く（c=SN3600 はTW・TW防火戸共通のカタログコード）。
+const LIXIL_TW_CATALOG_CODE = 'SN3600';
+function lixilPageUrl(catalogCode, page){
+  return `https://webcatalog.lixil.co.jp/cgi-bin/openCatalogAuth.cgi?c=${catalogCode}&p=${page}`;
+}
+
+// ページ直リンクの例外（任意）。上記の計算式で開いたページが実際のカタログ頁と
+// ズレている場合など、特定のページだけ手動で見つけた個別URLに差し替えたいときに追記する。
+// キーは `${カタログ区分}-${カタログ内の掲載頁}`。
 const PAGE_URL_OVERRIDES = {
   // 例: 'APW430-70': 'https://webcatalog.ykkap.co.jp/.....'
 };
@@ -958,7 +969,10 @@ function catalogGroupKey(m){
 function catalogUrl(m){
   const key = catalogGroupKey(m);
   if(!key) return null;
-  return PAGE_URL_OVERRIDES[`${key}-${m.page}`] || CATALOG_URLS[key];
+  const override = PAGE_URL_OVERRIDES[`${key}-${m.page}`];
+  if(override) return override;
+  if(key === "TW") return lixilPageUrl(LIXIL_TW_CATALOG_CODE, m.page);
+  return ykkPageUrl(YKK_CATALOG_IDS[key], m.page);
 }
 
 function cardHtml(m){
@@ -968,11 +982,9 @@ function cardHtml(m){
     : `<span style="font-size:13px;color:var(--ink-soft);">実寸未取得（表記ゆれの可能性）</span>`;
   const variant = variantLabel(m);
   const codeRef = m.code ? `呼称 <b>${m.code}</b> ／ ` : "";
-  const groupKey = catalogGroupKey(m);
-  const hasDirectLink = groupKey && PAGE_URL_OVERRIDES[`${groupKey}-${m.page}`];
   const url = catalogUrl(m);
   const pageNum = url
-    ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="page-link" title="${hasDirectLink ? "該当ページを開く" : "WEBカタログを開く（該当ページは表紙から探してください）"}">P.${m.page}</a>`
+    ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="page-link" title="カタログの該当ページを開く">P.${m.page}</a>`
     : `P.${m.page}`;
   return `
   <div class="card cat-${CAT_COLOR[m.cat]}">
