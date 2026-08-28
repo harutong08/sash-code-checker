@@ -364,12 +364,6 @@ textarea#batchInput:focus-visible{outline:2px solid var(--ink);outline-offset:1p
   text-underline-offset:2px;
 }
 .card .page-ref a.page-link:hover{color:var(--normal);}
-.card .page-ref .page-hint{
-  display:block;
-  margin-top:2px;
-  font-size:10.5px;
-  color:var(--ink-faint);
-}
 
 /* --- 一括チェック表 -------------------------------------------- */
 .batch-table{width:100%;border-collapse:collapse;margin-top:2px;}
@@ -938,18 +932,18 @@ function variantLabel(m){
   return parts.join(" / ");
 }
 
-// YKKのWEBカタログビューア（CatalogViewInterfaceStartUpAction.do）は、任意の
-// pageGroupId（=印刷ページ番号）を指定すると表紙にリダイレクトされてしまうが、
-// pageGroupId=1（先頭ページ）を指定するとビューアがそのまま開き、ビューア内の
-// ページ番号入力欄から任意のページへ移動できる。そこでビューアの入口まで
-// 直接開き、該当ページ番号は利用者に入力してもらう運用にしている。
+// YKKのWEBカタログは、pageGroupId・pg等どのパラメータで途中ページを指定しても
+// 実際にそのページを開いたブラウザのセッションが無いと表紙にリダイレクトされる
+// （URLだけでは途中ページを開けない）ことをシークレットウィンドウ含め実機で確認済み。
+// YKK公式サイトにも「ブックマークや履歴から途中ページへの直接アクセスは不可」と
+// 明記されており、これは仕様上の制限のため、素直に表紙へのリンクにしている。
 const YKK_CATALOG_IDS = {
   APW430: '12886420000',
   APW330: '13215560000',
   APW_FIRE: '12927020000'
 };
 function ykkPageUrl(catalogId, page){
-  return `https://webcatalog.ykkap.co.jp/iportal/CatalogViewInterfaceStartUpAction.do?method=startUp&mode=PAGE&catalogCategoryId=&catalogId=${catalogId}&pageGroupId=1&volumeID=YKKAPDC1&keyword=&categoryID=&sortMode=&sortKey=&sortOrder=&designID=pro&designConfirmFlg=`;
+  return `https://webcatalog.ykkap.co.jp/iportal/CatalogDetail.do?method=initial_screen&volumeID=YKKAPDC1&catalogID=${catalogId}&designID=pro`;
 }
 
 // LIXILのWEBカタログ（openCatalogAuth.cgi）は p にカタログ内の掲載頁番号を
@@ -994,13 +988,10 @@ function cardHtml(m){
   const url = catalogUrl(m);
   const linkTitle = groupKey === "TW"
     ? "カタログの該当ページを開く"
-    : `WEBカタログが開いたら、ページ番号「${m.page}」をビューア内の入力欄に入力してください`;
+    : "WEBカタログを開く（該当ページは表紙から探してください）";
   const pageNum = url
     ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="page-link" title="${linkTitle}">P.${m.page}</a>`
     : `P.${m.page}`;
-  const jumpHint = (url && groupKey !== "TW")
-    ? `<span class="page-hint">開いたら「${m.page}」と入力</span>`
-    : "";
   return `
   <div class="card cat-${CAT_COLOR[m.cat]}">
     <div class="diagram">${svgDiagram(m.sashW, m.sashH, color, m.type)}</div>
@@ -1009,7 +1000,7 @@ function cardHtml(m){
       <h3>${m.type}</h3>
       ${variant ? `<p class="variant">${variant}</p>` : ""}
       <div class="dims">${dims}</div>
-      <p class="page-ref">${codeRef}カタログ <b>${pageNum}</b> 掲載${jumpHint}</p>
+      <p class="page-ref">${codeRef}カタログ <b>${pageNum}</b> 掲載</p>
     </div>
   </div>`;
 }
