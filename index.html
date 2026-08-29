@@ -732,6 +732,7 @@ const seriesFilterSelectEl = document.getElementById("seriesFilterSelect");
 seriesFilterSelectEl.addEventListener("change", function(){
   seriesFilter = this.value || null;
   renderSeriesFilterChips();
+  renderTypeFilterChips();
   populateWidthOptions();
   populateBatchWidthOptions();
   renderCurrent();
@@ -1239,9 +1240,12 @@ function familyMatches(actualType, filterFamily){
 
 function getFamilies(cat){
   const set = {};
+  const seriesActive = seriesFilterActive();
   for (let i = 0; i < DATA.types.length; i++) {
     const t = DATA.types[i];
-    if(t.cat === cat){ set[familyOf(t.type)] = true; }
+    if(t.cat !== cat) continue;
+    if(seriesActive && seriesGroupOf(t.series) !== seriesFilter) continue;
+    set[familyOf(t.type)] = true;
   }
   return Object.keys(set).sort(function(a,b){ return a.localeCompare(b, "ja"); });
 }
