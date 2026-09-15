@@ -933,25 +933,28 @@ function variantLabel(m){
   return parts.join(" / ");
 }
 
-// YKKのWEBカタログは、pageGroupId・pg等どのパラメータで途中ページを指定しても
-// 実際にそのページを開いたブラウザのセッションが無いと表紙にリダイレクトされる
-// （URLだけでは途中ページを開けない）ことをシークレットウィンドウ含め実機で確認済み。
-// YKK公式サイトにも「ブックマークや履歴から途中ページへの直接アクセスは不可」と
-// 明記されており、これは仕様上の制限のため、素直に表紙へのリンクにしている。
-const YKK_CATALOG_IDS = {
-  APW430: '12886420000',
-  APW330: '13215560000',
-  APW_FIRE: '12927020000'
+// YKK・LIXILのWEBカタログは、ページ指定を「表紙から数えた通し番号」で受け取る。
+// 表紙（H1／表1）と表2の2ページが掲載頁1の前に入るため、通し番号は掲載頁+2になる。
+// この番号を渡せば、見開きID（pageGroupId）と左右どちらのページか（pagePosition、
+// スマホの単ページ表示で効く）はメーカー側が計算してくれる。
+// ※掲載頁番号をそのまま渡すと見開き単位のIDとして解釈され、実際の倍近く先の
+//   ページが開いてしまう（両社のページ一覧APIで全880ページ分の対応を検証済み）。
+const CATALOG_COVER_PAGES = 2;
+function catalogSheetNo(page){ return page + CATALOG_COVER_PAGES; }
+
+const YKK_CATALOG_CODES = {
+  APW430: 'XAAAA-H25-074-2',
+  APW330: 'XAAAA-H26-072-1',
+  APW_FIRE: 'XAAAA-H25-081-2'
 };
-function ykkPageUrl(catalogId, page){
-  return `https://webcatalog.ykkap.co.jp/iportal/CatalogViewInterfaceStartUpAction.do?method=startUp&mode=PAGE&catalogCategoryId=&catalogId=${catalogId}&pageGroupId=${page}&volumeID=YKKAPDC1&keyword=&categoryID=&sortMode=&sortKey=&sortOrder=&designID=pro&designConfirmFlg=`;
+function ykkPageUrl(catalogCode, page){
+  return `https://webcatalog.ykkap.co.jp/iportal/oc.do?c=${catalogCode}&p=${catalogSheetNo(page)}&v=YKKAPDC1&d=pro`;
 }
 
-// LIXILのWEBカタログ（openCatalogAuth.cgi）は p にカタログ内の掲載頁番号を
-// そのまま渡すと該当ページが開く（c=SN3600 はTW・TW防火戸共通のカタログコード）。
+// c=SN3600 はTW・TW防火戸共通のカタログコード
 const LIXIL_TW_CATALOG_CODE = 'SN3600';
 function lixilPageUrl(catalogCode, page){
-  return `https://webcatalog.lixil.co.jp/cgi-bin/openCatalogAuth.cgi?c=${catalogCode}&p=${page}`;
+  return `https://webcatalog.lixil.co.jp/cgi-bin/openCatalogAuth.cgi?c=${catalogCode}&p=${catalogSheetNo(page)}`;
 }
 
 // ページ直リンクの例外（任意）。上記の計算式で開いたページが実際のカタログ頁と
@@ -975,7 +978,7 @@ function catalogUrl(m){
   const override = PAGE_URL_OVERRIDES[`${key}-${m.page}`];
   if(override) return override;
   if(key === "TW") return lixilPageUrl(LIXIL_TW_CATALOG_CODE, m.page);
-  return ykkPageUrl(YKK_CATALOG_IDS[key], m.page);
+  return ykkPageUrl(YKK_CATALOG_CODES[key], m.page);
 }
 
 function cardHtml(m){
