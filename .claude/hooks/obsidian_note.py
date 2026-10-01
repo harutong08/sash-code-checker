@@ -101,14 +101,13 @@ def base_ref(cwd):
     return base_branch, base
 
 
-def code_section(cwd):
+def code_section(cwd, base):
     exclude = f":(exclude){NOTES_DIR}"  # ノート自身を差分に含めない
-    base_branch, base = base_ref(cwd)
     ref = base or "HEAD"
     out = []
     if base:
         log = git(cwd, "log", "--format=- `%h` %s", f"{base}..HEAD", "--", ".", exclude)
-        out.append(f"## コミット（origin/{base_branch} からの差分）\n\n{log or '（なし）'}\n")
+        out.append(f"## コミット（セッション開始時点 `{base[:7]}` から）\n\n{log or '（なし）'}\n")
     stat = git(cwd, "diff", "--stat", ref, "--", ".", exclude)  # コミット済み＋未コミット
     diff = git(cwd, "diff", "--no-color", ref, "--", ".", exclude)
     untracked = git(cwd, "ls-files", "--others", "--exclude-standard", "--", ".", exclude)
@@ -150,7 +149,11 @@ def main():
     now = datetime.now(JST)
     started = turns[0]["time"] or now.isoformat()
     title = title or turns[0]["prompt"].splitlines()[0][:40]
-    _, base = base_ref(root)
+    # 差分の起点はセッション最初のノート作成時に決めて保存し、以後は使い回す
+    # （作業ブランチを main にマージした後も、差分とジャンルが消えないようにするため）
+    existing = list((root / NOTES_DIR).rglob(f"*_{sid[:8]}.md"))
+    m = re.search(r"^base: ([0-9a-f]{40})$", existing[0].read_text(encoding="utf-8"), re.M) if existing else None
+    base = m.group(1) if m else (base_ref(root)[1] or git(root, "rev-parse", "HEAD"))
     genre = classify(title, turns, changed_files(root, base or "HEAD", f":(exclude){NOTES_DIR}"))
 
     parts = [
@@ -162,6 +165,7 @@ def main():
         f"started: {started}",
         f"updated: {now.isoformat(timespec='seconds')}",
         f"genre: {genre}",
+        f"base: {base}",
         f"tags: [claude-code, session, genre/{genre.replace('・', '_')}]",
         "---",
         f"# {title}\n",
@@ -177,7 +181,7 @@ def main():
             reply = reply[:MAX_REPLY_CHARS] + " …"
         quoted = "\n".join("> " + l for l in t["prompt"].splitlines())
         parts.append(f"### {i}. 依頼\n\n{quoted}\n\n**結果**\n\n{reply or '（応答なし）'}\n")
-    parts.append(code_section(root))
+    parts.append(code_section(root, base))
 
     safe_title = re.sub(r'[\\/:*?"<>|#^\[\]\s]+', "_", title).strip("_")[:40] or "session"
     target = root / NOTES_DIR / genre / f"{started[:10]}_{safe_title}_{sid[:8]}.md"
