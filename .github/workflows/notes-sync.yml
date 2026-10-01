@@ -29,7 +29,7 @@ jobs:
           BRANCH: ${{ github.ref_name }}
         run: |
           git fetch -q origin "$SRC"
-          git ls-tree -r --name-only "$SRC" -- notes | grep '\.md$' > "$RUNNER_TEMP/files" || exit 0
+          git -c core.quotePath=false ls-tree -r --name-only "$SRC" -- notes | grep '\.md$' > "$RUNNER_TEMP/files" || exit 0
           while IFS= read -r f; do
             # 同じセッション（ファイル名末尾 _<ID8桁>.md）の古いノートは消す（ジャンル・題名の変更対策）
             find notes -name "*_${f##*_}" ! -path "$f" -delete 2>/dev/null || true
