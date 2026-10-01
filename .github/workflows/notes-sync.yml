@@ -1,0 +1,48 @@
+# 作業ブランチに push されたセッションノート（notes/）を、すぐ main にも反映する。
+# Obsidian は main を pull するので、プルリクエストのマージを待たずにノートが見える。
+name: セッションノートをmainへ同期
+
+on:
+  push:
+    branches-ignore: [main]
+    paths: ['notes/**']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: notes-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: 押されたブランチのノートを main に反映
+        env:
+          SRC: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          git fetch -q origin "$SRC"
+          git ls-tree -r --name-only "$SRC" -- notes | grep '\.md$' > "$RUNNER_TEMP/files" || exit 0
+          while IFS= read -r f; do
+            # 同じセッション（ファイル名末尾 _<ID8桁>.md）の古いノートは消す（ジャンル・題名の変更対策）
+            find notes -name "*_${f##*_}" ! -path "$f" -delete 2>/dev/null || true
+            mkdir -p "$(dirname "$f")"
+            git show "$SRC:$f" > "$f"
+          done < "$RUNNER_TEMP/files"
+          git add -A notes
+          git diff --cached --quiet && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "notes: ${BRANCH} のセッションノートを同期 [skip ci]"
+          for i in 1 2 3; do
+            git push -q origin HEAD:main && exit 0
+            git pull -q --rebase origin main
+          done
+          exit 1
