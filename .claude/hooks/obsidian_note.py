@@ -86,9 +86,11 @@ def classify(title, turns, files):
         return "調査・相談"
     if all(f.endswith(".md") for f in files):
         return "ドキュメント"
-    if all(f.startswith(AUTOMATION_PATHS) for f in files):
+    code = [f for f in files if not f.endswith(".md")]  # ドキュメント更新は判定に使わない
+    if all(f.startswith(AUTOMATION_PATHS) for f in code):
         return "設定・自動化"
-    text = title + "\n" + "\n".join(t["prompt"] for t in turns)
+    # セッションの目的は最初の依頼に表れるので、途中の発言（「動かない」等の報告）では変えない
+    text = title + "\n" + (turns[0]["prompt"] if turns else "")
     for genre, pat in GENRE_RULES:
         if re.search(pat, text, re.IGNORECASE):
             return genre
