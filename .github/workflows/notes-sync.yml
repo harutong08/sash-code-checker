@@ -1,10 +1,11 @@
-# 作業ブランチに push されたセッションノート（notes/）を、すぐ main にも反映する。
-# Obsidian は main を pull するので、プルリクエストのマージを待たずにノートが見える。
-name: セッションノートをmainへ同期
+# push されたセッションノート（notes/）を、ノート専用ブランチ obsidian-notes に集める。
+# PC の Obsidian はこのブランチを取り込む。main には書き込まないので、作業ブランチを
+# main にマージしてもノートが競合しない（以前は main に直接コピーしていて毎回競合した）。
+name: セッションノートをobsidian-notesへ同期
 
 on:
   push:
-    branches-ignore: [main]
+    branches-ignore: [obsidian-notes]
     paths: ['notes/**']
 
 permissions:
@@ -20,16 +21,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
           fetch-depth: 0
 
-      - name: 押されたブランチのノートを main に反映
+      - name: 押されたコミットのノートを obsidian-notes に反映
         env:
           SRC: ${{ github.sha }}
           BRANCH: ${{ github.ref_name }}
         run: |
-          git fetch -q origin "$SRC"
+          if git ls-remote --exit-code --heads origin obsidian-notes >/dev/null; then
+            git checkout -q -B obsidian-notes origin/obsidian-notes
+          else
+            git checkout -q --orphan obsidian-notes && git rm -rqf . && git clean -fdq
+          fi
           git -c core.quotePath=false ls-tree -r --name-only "$SRC" -- notes | grep '\.md$' > "$RUNNER_TEMP/files" || exit 0
+          mkdir -p notes
           while IFS= read -r f; do
             # 同じセッション（ファイル名末尾 _<ID8桁>.md）の古いノートは消す（ジャンル・題名の変更対策）
             find notes -name "*_${f##*_}" ! -path "$f" -delete 2>/dev/null || true
@@ -40,9 +45,9 @@ jobs:
           git diff --cached --quiet && exit 0
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          git commit -q -m "notes: ${BRANCH} のセッションノートを同期 [skip ci]"
+          git commit -q -m "notes: ${BRANCH} のセッションノートを同期"
           for i in 1 2 3; do
-            git push -q origin HEAD:main && exit 0
-            git pull -q --rebase origin main
+            git push -q origin HEAD:obsidian-notes && exit 0
+            git pull -q --rebase origin obsidian-notes
           done
           exit 1
