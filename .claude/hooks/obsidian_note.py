@@ -3,7 +3,11 @@
 
 Stop フックから呼ばれる（stdin に hook 入力の JSON）。ノートはセッションごとに1ファイルで、
 毎ターン上書きする（ジャンルや題名が変われば古いファイルを消して移す）。
-コミット・push はしない（通常の作業と一緒にコミットされ、GitHub Actions が main に同期する）。
+
+ノートの本文は Claude 自身が書く「まとめ」（notes/.summaries/<ID8桁>.md）。まとめが最新の依頼に
+追いついていなければ、Stop をいったん止めて（decision: block）Claude にまとめの更新を頼む。
+コード差分とやり取りの原文は折りたたんで後ろに付ける。
+コミット・push は通常の作業と一緒に行い、GitHub Actions が obsidian-notes ブランチに集める。
 """
 import json
 import os
@@ -103,6 +107,11 @@ def base_ref(cwd):
     return base_branch, base
 
 
+def quote(text):
+    """Obsidian の折りたたみ（callout）の中に入れるため、各行を引用にする。"""
+    return "\n".join("> " + l for l in text.splitlines())
+
+
 def code_section(cwd, base):
     exclude = f":(exclude){NOTES_DIR}"  # ノート自身を差分に含めない
     ref = base or "HEAD"
@@ -124,32 +133,41 @@ def code_section(cwd, base):
             cut = f"\n（差分が長いため {MAX_DIFF_LINES}/{len(lines)} 行で省略）"
             lines = lines[:MAX_DIFF_LINES]
         body = "\n".join(lines).replace("````", "` ` ` `")
-        out.append(f"## コード差分\n\n````diff\n{body}\n````{cut}\n")
-    else:
-        out.append("## コード差分\n\n（変更なし）\n")
+        out.append(f"> [!example]- コード差分（クリックで開く）\n{quote(f'````diff{chr(10)}{body}{chr(10)}````{cut}')}\n")
     return "\n".join(out)
 
 
-def main():
-    hook = json.load(sys.stdin)
-    if hook.get("stop_hook_active"):
-        return  # 他の Stop フックの指摘で続行したターンでは書き直さない（無限ループ防止）
+SUMMARY_DIR = f"{NOTES_DIR}/.summaries"
+SUMMARY_SECTIONS = "## 目的 / ## 結果・結論 / ## やり取りの要点 / ## 決定事項 / ## 残課題"
+
+
+def read_summary(path):
+    """まとめ本文と、それが何件目の依頼まで反映済みか（frontmatter の turns）を返す。"""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return "", 0
+    m = re.match(r"---\s*\nturns:\s*(\d+)\s*\n---\s*\n?", text)
+    return (text[m.end():].strip(), int(m.group(1))) if m else (text.strip(), 0)
+
+
+def build_note(hook):
+    """ノートを書き、(依頼件数, まとめ反映済み件数, まとめのパス) を返す。"""
     cwd = Path(hook.get("cwd") or os.getcwd())
     root = git(cwd, "rev-parse", "--show-toplevel")
     if not root:
-        return
+        return None
     root = Path(root)
 
     title, turns = read_transcript(hook.get("transcript_path", ""))
     if not turns:
-        return
+        return None
     repo = re.sub(r"^.*github\.com[/:]|\.git$", "", git(root, "remote", "get-url", "origin")) or root.name
     branch = git(root, "branch", "--show-current") or "(detached)"
     sid = hook.get("session_id", "unknown")
     remote_sid = os.environ.get("CLAUDE_CODE_REMOTE_SESSION_ID", "")
     link = f"https://claude.ai/code/session_{remote_sid.split('_', 1)[-1]}" if remote_sid else f"`{sid}`"
-    now = datetime.now(JST)
-    started = turns[0]["time"] or now.isoformat()
+    started = turns[0]["time"] or datetime.now(JST).isoformat()
     title = title or turns[0]["prompt"].splitlines()[0][:40]
     # 差分の起点はセッション最初のノート作成時に決めて保存し、以後は使い回す
     # （作業ブランチを main にマージした後も、差分とジャンルが消えないようにするため）
@@ -157,7 +175,10 @@ def main():
     m = re.search(r"^base: ([0-9a-f]{40})$", existing[0].read_text(encoding="utf-8"), re.M) if existing else None
     base = m.group(1) if m else (base_ref(root)[1] or git(root, "rev-parse", "HEAD"))
     genre = classify(title, turns, changed_files(root, base or "HEAD", f":(exclude){NOTES_DIR}"))
+    summary_path = root / SUMMARY_DIR / f"{sid[:8]}.md"
+    summary, summarized = read_summary(summary_path)
 
+    # updated のような時刻は入れない（内容が同じなら毎回同じファイルになり、無駄な差分が出ない）
     parts = [
         "---",
         f"title: {json.dumps(title, ensure_ascii=False)}",
@@ -165,7 +186,6 @@ def main():
         f"branch: {branch}",
         f"session: {sid}",
         f"started: {started}",
-        f"updated: {now.isoformat(timespec='seconds')}",
         f"genre: {genre}",
         f"base: {base}",
         f"tags: [claude-code, session, genre/{genre.replace('・', '_')}]",
@@ -175,23 +195,52 @@ def main():
         f"- ジャンル: {genre}",
         f"- セッション: {link}",
         "",
-        "## 依頼と結果\n",
+        summary or "（まとめはまだありません）",
+        "",
     ]
+    if summary and summarized < len(turns):
+        parts.append(f"> [!warning] まとめは {summarized}/{len(turns)} 件目の依頼までの内容です\n")
+    parts.append(code_section(root, base))
+    log = []
     for i, t in enumerate(turns, 1):
         reply = t["reply"]
         if len(reply) > MAX_REPLY_CHARS:
             reply = reply[:MAX_REPLY_CHARS] + " …"
-        quoted = "\n".join("> " + l for l in t["prompt"].splitlines())
-        parts.append(f"### {i}. 依頼\n\n{quoted}\n\n**結果**\n\n{reply or '（応答なし）'}\n")
-    parts.append(code_section(root, base))
+        log.append(f"**{i}. 依頼**\n\n{t['prompt']}\n\n**応答**\n\n{reply or '（応答なし）'}\n")
+    parts.append(f"> [!quote]- やり取りの原文（クリックで開く）\n{quote(chr(10).join(log))}\n")
 
     safe_title = re.sub(r'[\\/:*?"<>|#^\[\]\s]+', "_", title).strip("_")[:40] or "session"
     target = root / NOTES_DIR / genre / f"{started[:10]}_{safe_title}_{sid[:8]}.md"
-    for old in (root / NOTES_DIR).rglob(f"*_{sid[:8]}.md"):  # ジャンル・題名が変わった古いノート
+    for old in existing:  # ジャンル・題名が変わった古いノート
         if old != target:
             old.unlink()
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("\n".join(parts), encoding="utf-8")
+    return len(turns), summarized, summary_path.relative_to(root)
+
+
+def main():
+    if sys.argv[1:2] == ["--rebuild"]:  # まとめを書いた後に Claude が呼ぶ: --rebuild <transcript> <session_id>
+        build_note({"transcript_path": sys.argv[2], "session_id": sys.argv[3], "cwd": os.getcwd()})
+        return
+    hook = json.load(sys.stdin)
+    result = build_note(hook)
+    # 他の Stop フックの指摘やまとめ更新で続行したターンでは、もう止めない（無限ループ防止）
+    if not result or hook.get("stop_hook_active"):
+        return
+    n, summarized, summary_path = result
+    if summarized >= n:
+        return
+    script = ".claude/hooks/obsidian_note.py"
+    reason = (
+        "[セッションノート] Obsidian用のまとめを更新してください（ユーザーへの報告は不要）。\n"
+        f"1. `{summary_path}` を上書きする。1行目から `---` / `turns: {n}` / `---` の3行、続けて "
+        f"{SUMMARY_SECTIONS} の見出しで、このセッション全体を事実ベースで簡潔にまとめる"
+        "（やり取りの要点は依頼ごとに「依頼 → 対応・結果」を1〜2行、残課題がなければ「なし」）。\n"
+        f"2. `python3 {script} --rebuild '{hook.get('transcript_path', '')}' '{hook.get('session_id', '')}'` を実行する。\n"
+        "3. notes/ をコミットして、今のブランチに push する。"
+    )
+    print(json.dumps({"decision": "block", "reason": reason}, ensure_ascii=False))
 
 
 if __name__ == "__main__":
