@@ -155,3 +155,25 @@ const PAGE_URL_OVERRIDES = {
 3. 数十秒〜1分ほどでGitHub Pagesに自動反映される（`manifest.json` や `icons/` を変えたときも同様）
 
 公開URL・インストール済みアプリのショートカットは変わらないため、利用者側の操作は不要です。
+
+
+## カタログとの定期照合（`tools/catalog_audit/`）
+
+データの登録漏れやメーカーの改版を見逃さないための点検スクリプトです。毎月1回、ルーティンで自動実行しています。
+
+```bash
+sudo apt install tesseract-ocr && pip install pytesseract pillow
+python3 tools/catalog_audit/audit.py             # 新版チェック＋全ページ照合（10分程度）
+python3 tools/catalog_audit/audit.py --skip-ocr  # 新版チェックだけ（数秒）
+```
+
+1. **新版チェック**：各社のカタログ検索APIで、今リンクしているカタログより後に登録された同名カタログ
+   （APW 430／APW 330／TW・TW防火戸の商品カタログ）がないかを調べます。
+2. **ページ照合**：サイズ表のページ画像をOCRして呼称を拾い、`index.html` のデータ（掲載頁ごと）と比べます。
+   - 「カタログにあってデータにない」＝登録漏れ、または掲載頁のズレ
+   - 「データにあってこのページにない」＝掲載頁のズレ、またはOCRの読み落とし
+3. 目視でOCRノイズと確認済みの差分は `baseline.json` に記録してあり、レポートからは除かれます。
+   結果は `tools/catalog_audit/report.md` に出ます。
+
+OCRは読み違えることがあるので、差分が出たら**必ずページ画像で確認してからデータを直す**こと。
+確認してノイズだったものは `--update-baseline` で記録します（本物の登録漏れを baseline に入れないこと）。
