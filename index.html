@@ -1238,8 +1238,9 @@ function renderSeriesFilterChips(){
 }
 
 // 窓種プルダウンの項目名（カタログの窓種名＋製品区分＋構成をそのまま使う）
+// ハンドルの違い（グレモン／オペレーター）はプルダウンではまとめる（カードには表示する）
 function familyOf(typeStr){
-  return typeStr.trim();
+  return typeStr.replace(/（(グレモン|オペレーター)(ハンドル仕様)?）/g, "").trim();
 }
 
 // 窓種フィルタとの一致判定。基本の窓種（例：「すべり出し窓」）を選んだ場合は、
